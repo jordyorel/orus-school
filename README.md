@@ -109,6 +109,19 @@ This repository now ships with a working FastAPI backend and a Vite + React (Tai
 
 ## Backend
 
+The backend lives in the `backend/` directory, but thanks to the lightweight
+`app/` compatibility package you can start the API from the repository root.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements.txt
+uvicorn app.main:app --reload
+```
+
+If you prefer to keep virtual environments scoped to the backend folder, the
+following commands are equivalent:
+
 ```bash
 cd backend
 python -m venv .venv
