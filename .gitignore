@@ -1,0 +1,10 @@
+backend/.venv/
+backend/orus_school.db
+backend/orus_school.db-journal
+orus_school.db
+orus_school.db-journal
+frontend/node_modules/
+frontend/dist/
+__pycache__/
+*.pyc
+.env
