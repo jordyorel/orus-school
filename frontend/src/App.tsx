@@ -1,0 +1,67 @@
+import { Navigate, Route, Routes } from "react-router-dom";
+import { AuthProvider, useAuth } from "./context";
+import LoginPage from "./pages/LoginPage";
+import DashboardPage from "./pages/DashboardPage";
+import CoursePage from "./pages/CoursePage";
+import AdminPage from "./pages/AdminPage";
+import ShellLayout from "./components/ShellLayout";
+
+const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100">
+        <div className="rounded-lg bg-white p-8 shadow">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+};
+
+const AdminRoute = ({ children }: { children: JSX.Element }) => {
+  const { user } = useAuth();
+  if (user?.role !== "admin") {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+};
+
+const AppRoutes = () => (
+  <Routes>
+    <Route path="/login" element={<LoginPage />} />
+    <Route
+      path="/"
+      element={
+        <ProtectedRoute>
+          <ShellLayout />
+        </ProtectedRoute>
+      }
+    >
+      <Route index element={<DashboardPage />} />
+      <Route path="courses/:courseId" element={<CoursePage />} />
+      <Route
+        path="admin"
+        element={
+          <AdminRoute>
+            <AdminPage />
+          </AdminRoute>
+        }
+      />
+    </Route>
+    <Route path="*" element={<Navigate to="/" replace />} />
+  </Routes>
+);
+
+const App = () => (
+  <AuthProvider>
+    <AppRoutes />
+  </AuthProvider>
+);
+
+export default App;
