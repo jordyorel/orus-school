@@ -20,7 +20,7 @@ const LoginPage = () => {
       } else {
         await register(form.name, form.email, form.password);
       }
-      navigate("/");
+      navigate("/app");
     } catch (err) {
       setError("Unable to authenticate. Please check your details.");
     } finally {

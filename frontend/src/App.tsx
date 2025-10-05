@@ -4,6 +4,7 @@ import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import CoursePage from "./pages/CoursePage";
 import AdminPage from "./pages/AdminPage";
+import LandingPage from "./pages/LandingPage";
 import ShellLayout from "./components/ShellLayout";
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
@@ -27,16 +28,17 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
 const AdminRoute = ({ children }: { children: JSX.Element }) => {
   const { user } = useAuth();
   if (user?.role !== "admin") {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/app" replace />;
   }
   return children;
 };
 
 const AppRoutes = () => (
   <Routes>
+    <Route path="/" element={<LandingPage />} />
     <Route path="/login" element={<LoginPage />} />
     <Route
-      path="/"
+      path="/app"
       element={
         <ProtectedRoute>
           <ShellLayout />

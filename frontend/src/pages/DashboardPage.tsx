@@ -98,7 +98,7 @@ const DashboardPage = () => {
                 return (
                   <Link
                     key={course.id}
-                    to={locked ? "#" : `/courses/${course.id}`}
+                    to={locked ? "#" : `/app/courses/${course.id}`}
                     className={`rounded-2xl border border-slate-200 bg-white p-6 shadow transition hover:-translate-y-1 hover:shadow-lg ${
                       locked ? "pointer-events-none opacity-50" : ""
                     }`}
