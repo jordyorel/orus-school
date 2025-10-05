@@ -97,6 +97,25 @@ const quotes = [
   }
 ];
 
+const heroBadges = [
+  { id: "track", label: "Track", value: "Systems & Hardware" },
+  { id: "cohort", label: "Cohort", value: "Spring 2024" },
+  { id: "plan", label: "Plan", value: "Standard" }
+];
+
+const quickActions = [
+  { id: 1, icon: "🚀", label: "Submit new project" },
+  { id: 2, icon: "📂", label: "Check feedback" },
+  { id: 3, icon: "💬", label: "Ask for help" },
+  { id: 4, icon: "🤝", label: "Join study group" }
+];
+
+const learningGoals = [
+  { id: 1, label: "Read Shell & Git guide" },
+  { id: 2, label: "Push Memory module project" },
+  { id: 3, label: "Review mentor feedback" }
+];
+
 const DashboardPage = () => {
   const { user } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
@@ -180,6 +199,29 @@ const DashboardPage = () => {
       ? `Keep going! You're only ${projectsAway} project${projectsAway === 1 ? "" : "s"} away from unlocking Year 2 🚀`
       : "Finish your remaining projects to unlock the next adventure!";
 
+  const upcomingCourse = courses.find((course) => !progressMap[course.id]?.completed);
+
+  const heroStats = [
+    {
+      id: "completed",
+      label: "Completed modules",
+      value: completedCourses.toString().padStart(2, "0"),
+      helper: `of ${totalCourses} total`
+    },
+    {
+      id: "active",
+      label: "Active projects",
+      value: inProgressCourses > 0 ? inProgressCourses.toString().padStart(2, "0") : "00",
+      helper: inProgressCourses > 0 ? "Keep the momentum" : "Start a new sprint"
+    },
+    {
+      id: "milestone",
+      label: "Next milestone",
+      value: upcomingCourse ? upcomingCourse.title : "All caught up",
+      helper: upcomingCourse ? "Due Mar 21" : "Nice work!"
+    }
+  ];
+
   const achievements: Achievement[] = useMemo(() => {
     return [
       {
@@ -261,7 +303,7 @@ const DashboardPage = () => {
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="rounded-3xl bg-white/70 px-6 py-4 text-slate-600 shadow-soft dark:bg-slate-900/60 dark:text-slate-300">
+        <div className="rounded-[28px] bg-white/80 px-6 py-4 text-slate-600 shadow-lg backdrop-blur dark:bg-slate-900/70 dark:text-slate-200">
           Loading your dashboard…
         </div>
       </div>
@@ -270,130 +312,164 @@ const DashboardPage = () => {
 
   return (
     <div className="space-y-10">
-      <section className="relative overflow-hidden rounded-3xl bg-white/80 p-6 shadow-soft backdrop-blur transition dark:bg-slate-900/60 sm:p-8">
-        <div className="pointer-events-none absolute inset-0 opacity-40 [background:radial-gradient(circle_at_top_left,rgba(56,189,248,0.25),transparent_55%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.2),transparent_65%)] dark:opacity-60" />
-        <div className="relative">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="relative inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-sky-500 text-2xl font-semibold text-white shadow-glow">
-                {initials || "👩‍🎓"}
+      <section className="relative overflow-hidden rounded-[32px] border border-white/60 bg-white/95 p-8 shadow-[0_60px_80px_-40px_rgba(15,23,42,0.25)] backdrop-blur dark:border-slate-800/60 dark:bg-slate-900/70">
+        <div className="pointer-events-none absolute -right-24 top-[-120px] h-64 w-64 rounded-full bg-emerald-200/60 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-[-120px] left-[-80px] h-72 w-72 rounded-full bg-sky-200/60 blur-3xl" />
+        <div className="relative space-y-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-wide text-emerald-600">
+              {heroBadges.map((badge) => (
+                <span
+                  key={badge.id}
+                  className="rounded-full bg-emerald-50 px-4 py-2 text-emerald-600 shadow-inner dark:bg-emerald-500/10 dark:text-emerald-200"
+                >
+                  {badge.label}: {badge.value}
+                </span>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-sm font-semibold">
+              <button
+                onClick={() => setIsDarkMode((mode) => !mode)}
+                className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2 text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-white/10"
+              >
+                {isDarkMode ? "☀️ Light mode" : "🌙 Dark mode"}
+              </button>
+              <button className="inline-flex items-center gap-2 rounded-full bg-white/70 px-5 py-2 text-slate-700 shadow-inner transition hover:-translate-y-0.5 hover:shadow-lg dark:bg-white/10 dark:text-white">
+                ⬇️ Download profile
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-8 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+              <div className="relative mx-auto h-24 w-24 shrink-0 rounded-[28px] bg-gradient-to-br from-emerald-400 to-sky-500 text-3xl font-semibold text-white shadow-[0_20px_40px_-20px_rgba(56,189,248,0.8)]">
+                <div className="flex h-full w-full items-center justify-center">
+                  {initials || "AL"}
+                </div>
+                <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-emerald-600 shadow-md dark:bg-slate-900 dark:text-emerald-300">
+                  Year {unlockedYear}
+                </span>
               </div>
-            <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">👋 Welcome back</p>
-              <h1 className="text-2xl font-semibold text-slate-900 dark:text-white sm:text-3xl">{user?.name}</h1>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Here’s what’s waiting for you today.
-              </p>
+              <div className="text-center sm:text-left">
+                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-500">Student dashboard</p>
+                <h1 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white sm:text-4xl">
+                  {user?.name ?? "Ada Lovelace"}
+                </h1>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-300">Full-stack foundations · Cohort 2024</p>
+                <div className="mt-6 grid gap-4 text-left text-sm text-slate-500 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.25em] text-slate-400">Overall progress</p>
+                    <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">{completionRate.toFixed(0)}%</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.25em] text-slate-400">Courses unlocked</p>
+                    <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">{years.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.25em] text-slate-400">Active streak</p>
+                    <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">06 days</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.25em] text-slate-400">Last check-in</p>
+                    <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">Mar 18, 2024</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="grid w-full max-w-xl gap-4 sm:grid-cols-3">
+              {heroStats.map((stat) => (
+                <div
+                  key={stat.id}
+                  className="flex h-full flex-col justify-between rounded-[24px] border border-white/70 bg-white/80 p-4 text-sm text-slate-500 shadow-inner transition hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-300"
+                >
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.25em] text-slate-400">{stat.label}</p>
+                    <p className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">{stat.value}</p>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">{stat.helper}</p>
+                </div>
+              ))}
             </div>
           </div>
-          <div className="flex items-center gap-3 self-start rounded-full bg-slate-100/80 p-1 text-xs font-medium text-slate-500 transition dark:bg-slate-800/80 dark:text-slate-300">
-            <div className="rounded-full bg-white px-3 py-1.5 text-slate-700 shadow-sm dark:bg-slate-900/70 dark:text-slate-100">
-              {completionRate.toFixed(0)}% complete
-            </div>
-            <div className="rounded-full px-3 py-1.5">{`Year ${unlockedYear}: ${currentYearLabel}`}</div>
-            <button
-              onClick={() => setIsDarkMode((mode) => !mode)}
-              className="flex items-center gap-1 rounded-full bg-slate-900 px-3 py-1.5 text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-white/20 dark:text-white dark:hover:bg-white/30"
-            >
-              {isDarkMode ? "☀️ Light" : "🌙 Dark"}
-            </button>
-          </div>
-        </div>
-          <div className="mt-6 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-white/60 bg-white/60 p-4 shadow-inner transition hover:-translate-y-0.5 hover:shadow-soft dark:border-white/10 dark:bg-white/5">
-              <p className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Completed</p>
-              <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{completedCourses}</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Out of {totalCourses} courses</p>
-          </div>
-          <div className="rounded-2xl border border-white/60 bg-white/60 p-4 shadow-inner transition hover:-translate-y-0.5 hover:shadow-soft dark:border-white/10 dark:bg-white/5">
-            <p className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">In progress</p>
-            <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{inProgressCourses}</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Keep up the momentum!</p>
-          </div>
-          <div className="rounded-2xl border border-white/60 bg-white/60 p-4 shadow-inner transition hover:-translate-y-0.5 hover:shadow-soft dark:border-white/10 dark:bg-white/5">
-            <p className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Current focus</p>
-            <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">Year {unlockedYear}</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">{currentYearLabel}</p>
-          </div>
-          </div>
+
           {nextAchievement && (
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-dashed border-emerald-300/60 bg-emerald-50/40 p-4 text-sm text-emerald-700 shadow-inner transition dark:border-emerald-300/40 dark:bg-emerald-500/10 dark:text-emerald-200">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{nextAchievement.icon}</span>
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-[24px] border border-dashed border-emerald-200 bg-emerald-50/60 px-6 py-4 text-sm text-emerald-700 shadow-inner dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200">
+              <div className="flex items-center gap-4">
+                <span className="text-3xl">{nextAchievement.icon}</span>
                 <div>
-                  <p className="font-semibold">Next badge: {nextAchievement.title}</p>
+                  <p className="text-base font-semibold text-emerald-800 dark:text-emerald-100">Next badge: {nextAchievement.title}</p>
                   <p className="text-xs text-emerald-600/80 dark:text-emerald-200/80">{nextAchievement.progressText}</p>
                 </div>
               </div>
-              <span className="rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white shadow-soft dark:bg-emerald-400 dark:text-slate-900">
-                Keep climbing!
+              <span className="rounded-full bg-emerald-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white shadow-lg dark:bg-emerald-400 dark:text-slate-900">
+                Keep climbing
               </span>
             </div>
           )}
         </div>
       </section>
 
-      <section className="rounded-3xl bg-gradient-to-r from-emerald-400/90 via-sky-400/90 to-indigo-400/90 p-[1px] shadow-glow">
-        <div className="rounded-[calc(1.875rem-1px)] bg-white/95 p-8 text-slate-900 transition dark:bg-slate-950/80 dark:text-slate-100">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+      <section className="relative overflow-hidden rounded-[32px] border border-white/60 bg-white/95 p-8 shadow-[0_60px_80px_-40px_rgba(15,23,42,0.2)] dark:border-slate-800/60 dark:bg-slate-900/70">
+        <div className="pointer-events-none absolute -right-16 top-12 h-36 w-36 rounded-full bg-emerald-200/40 blur-3xl" />
+        <div className="relative space-y-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-300">
-                Progress overview
-              </p>
-              <h2 className="mt-2 text-3xl font-semibold">{completionRate.toFixed(0)}% Complete</h2>
-              <p className="mt-3 max-w-xl text-sm text-slate-600 dark:text-slate-300">{motivationalMessage}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-500">Progress overview</p>
+              <h2 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{completionRate.toFixed(0)}% Complete</h2>
+              <p className="mt-3 max-w-2xl text-sm text-slate-500 dark:text-slate-300">{motivationalMessage}</p>
             </div>
-            <div className="flex gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-emerald-400" /> Completed
+            <div className="grid grid-cols-3 gap-4 text-center text-sm text-slate-500 dark:text-slate-300">
+              <div className="rounded-[20px] bg-emerald-100/70 px-4 py-3 font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200">
+                <p className="text-xs uppercase tracking-[0.25em]">Completed</p>
+                <p className="mt-2 text-xl text-emerald-700 dark:text-emerald-100">{completedCourses}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-amber-300" /> In progress
+              <div className="rounded-[20px] bg-amber-100/80 px-4 py-3 font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-200">
+                <p className="text-xs uppercase tracking-[0.25em]">In progress</p>
+                <p className="mt-2 text-xl text-amber-700 dark:text-amber-200">{inProgressCourses}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-slate-200" /> Locked
+              <div className="rounded-[20px] bg-slate-100 px-4 py-3 font-semibold text-slate-600 dark:bg-slate-700/60 dark:text-slate-200">
+                <p className="text-xs uppercase tracking-[0.25em]">Locked</p>
+                <p className="mt-2 text-xl text-slate-700 dark:text-slate-100">{Math.max(totalCourses - completedCourses - inProgressCourses, 0)}</p>
               </div>
             </div>
           </div>
-          <div className="mt-6">
-            <div className="flex h-4 w-full overflow-hidden rounded-full bg-slate-200">
-              <div
-                className="h-full bg-emerald-400 transition-[width] duration-700"
-                style={{ width: `${completedPercent}%` }}
-              />
-              <div
-                className="h-full bg-amber-300 transition-[width] duration-700"
-                style={{ width: `${inProgressPercent}%` }}
-              />
-              <div className="h-full bg-slate-300/70" style={{ width: `${lockedPercent}%` }} />
+
+          <div className="space-y-4">
+            <div className="flex h-4 w-full overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800">
+              <div className="h-full rounded-l-full bg-emerald-400" style={{ width: `${completedPercent}%` }} />
+              <div className="h-full bg-amber-300" style={{ width: `${inProgressPercent}%` }} />
+              <div className="h-full rounded-r-full bg-slate-300/80" style={{ width: `${lockedPercent}%` }} />
+            </div>
+            <div className="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-slate-600 shadow-inner dark:bg-slate-800/60 dark:text-slate-300">🚀 8 progress</span>
+              <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-slate-600 shadow-inner dark:bg-slate-800/60 dark:text-slate-300">🏆 6 badges unlocked</span>
+              <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-slate-600 shadow-inner dark:bg-slate-800/60 dark:text-slate-300">📆 Weekly goal: 5 hrs</span>
             </div>
           </div>
         </div>
       </section>
 
-      <div className="grid gap-10 lg:grid-cols-[2fr,1fr]">
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
         <section className="space-y-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">Course roadmap</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Track your foundations and unlock specializations as you progress.
-              </p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Progress through curated foundations to unlock new realms.</p>
             </div>
-            <div className="flex items-center gap-2 rounded-full bg-white/60 p-1 shadow-inner dark:bg-white/5">
+            <div className="flex items-center gap-2 rounded-full bg-white/70 p-1 shadow-inner dark:bg-white/5">
               {years.map((year) => {
                 const locked = year > unlockedYear;
                 return (
                   <button
                     key={year}
                     onClick={() => !locked && setActiveYear(year)}
-                    className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition ${
+                    className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
                       activeYear === year
-                        ? "bg-slate-900 text-white shadow-soft dark:bg-white/20 dark:text-white"
+                        ? "bg-slate-900 text-white shadow-lg dark:bg-white/10"
                         : "text-slate-500 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white"
                     } ${locked ? "pointer-events-none opacity-40" : ""}`}
                   >
-                    <span className="text-base">{year <= unlockedYear ? "🟢" : "🔒"}</span>
+                    <span>{locked ? "🔒" : "🟢"}</span>
                     Year {year}
                   </button>
                 );
@@ -407,52 +483,47 @@ const DashboardPage = () => {
               const completed = entry?.completed;
               const started = Boolean(entry);
               const locked = (activeYear ?? 0) > unlockedYear;
-              const status = locked ? "Locked" : completed ? "Completed" : started ? "In Progress" : "Not started";
-              const statusStyles = locked
-                ? "bg-slate-200 text-slate-600 dark:bg-slate-800/80 dark:text-slate-300"
+              const status = locked ? "Locked" : completed ? "Completed" : started ? "In progress" : "Not started";
+              const statusColor = locked
+                ? "bg-slate-200 text-slate-500"
                 : completed
-                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200"
+                  ? "bg-emerald-100 text-emerald-700"
                   : started
-                    ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200"
-                    : "bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-200";
-              const ringValue = completed ? 100 : started ? 55 : 8;
+                    ? "bg-amber-100 text-amber-700"
+                    : "bg-slate-100 text-slate-600";
+              const progressLabel = completed ? "100%" : started ? "55%" : "0%";
 
               return (
                 <Link
                   key={course.id}
                   to={locked ? "#" : `/app/courses/${course.id}`}
-                  className={`group relative overflow-hidden rounded-3xl border border-white/50 bg-white/80 p-6 shadow-soft transition-all hover:-translate-y-1 hover:shadow-glow dark:border-white/10 dark:bg-slate-900/70 ${
+                  className={`group relative overflow-hidden rounded-[28px] border border-white/60 bg-white/90 p-6 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.35)] transition-all hover:-translate-y-1 hover:shadow-[0_40px_80px_-40px_rgba(14,165,233,0.45)] dark:border-white/10 dark:bg-slate-900/60 ${
                     locked ? "pointer-events-none opacity-60" : ""
                   }`}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-white/20 to-white/0 opacity-0 transition-opacity group-hover:opacity-100 dark:from-white/0 dark:via-white/5" />
-                  <div className="relative flex items-start justify-between gap-4">
-                    <div className="space-y-3">
-                      <div className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600 transition dark:bg-slate-800/80 dark:text-slate-200">
-                        {courseEmojis[course.title] ?? "📘"} {course.title}
-                      </div>
-                      <p className="text-sm text-slate-500 dark:text-slate-300">{course.description}</p>
-                      <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${statusStyles}`}>
-                        {status === "Locked" ? "🔒" : status === "Completed" ? "✅" : status === "In Progress" ? "⏳" : "🟡"}
-                        {status}
-                      </span>
-                    </div>
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/70 shadow-inner transition group-hover:scale-105 dark:bg-slate-800/70">
-                      <div
-                        className="flex h-14 w-14 items-center justify-center rounded-full text-sm font-semibold text-slate-700 transition group-hover:text-slate-900 dark:text-slate-200"
-                        style={{
-                          background: `conic-gradient(#34d399 ${ringValue}%, rgba(148, 163, 184, 0.25) ${ringValue}% 100%)`
-                        }}
-                      >
-                        <span className="rounded-full bg-white/80 px-3 py-1 text-xs text-slate-700 shadow-sm backdrop-blur-sm dark:bg-slate-900/70 dark:text-slate-100">
-                          {completed ? "100%" : started ? "55%" : "0%"}
+                  <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100">
+                    <div className="absolute -right-10 top-0 h-24 w-24 rounded-full bg-sky-200/40 blur-3xl" />
+                  </div>
+                  <div className="relative flex flex-col gap-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-3">
+                        <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:bg-slate-800/60 dark:text-slate-300">
+                          {courseEmojis[course.title] ?? "📘"} {course.title}
+                        </span>
+                        <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-300">{course.description}</p>
+                        <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${statusColor} dark:bg-opacity-20 dark:text-inherit`}>
+                          {status === "Locked" ? "🔒" : status === "Completed" ? "✅" : status === "In progress" ? "⏳" : "🟡"}
+                          {status}
                         </span>
                       </div>
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/70 text-sm font-semibold text-slate-700 shadow-inner transition group-hover:scale-105 dark:bg-slate-800/60 dark:text-slate-100">
+                        {progressLabel}
+                      </div>
                     </div>
-                  </div>
-                  <div className="relative mt-6 flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">
-                    <span>View course</span>
-                    <span className="transition group-hover:translate-x-1">→</span>
+                    <div className="flex items-center justify-between text-sm font-semibold text-slate-500 dark:text-slate-300">
+                      <span>View details</span>
+                      <span className="transition group-hover:translate-x-1">→</span>
+                    </div>
                   </div>
                 </Link>
               );
@@ -461,7 +532,7 @@ const DashboardPage = () => {
         </section>
 
         <aside className="space-y-6">
-          <section className="rounded-3xl bg-white/80 p-6 shadow-soft backdrop-blur transition dark:bg-slate-900/60">
+          <section className="rounded-[28px] border border-white/60 bg-white/95 p-6 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.35)] backdrop-blur dark:border-white/10 dark:bg-slate-900/60">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Announcements</h2>
               <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200">
@@ -472,7 +543,7 @@ const DashboardPage = () => {
               {announcements.map((announcement) => (
                 <div
                   key={announcement.id}
-                  className={`rounded-2xl border border-white/60 bg-white/70 p-4 text-sm shadow-inner transition hover:-translate-y-0.5 hover:shadow-soft dark:border-white/10 dark:bg-slate-900/40 ${
+                  className={`rounded-[20px] border border-white/60 bg-white/90 p-4 text-sm shadow-inner transition hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10 dark:bg-slate-900/50 ${
                     announcement.highlight ? "ring-2 ring-emerald-300/70 dark:ring-emerald-400/40" : ""
                   }`}
                 >
@@ -480,109 +551,99 @@ const DashboardPage = () => {
                     <span className="text-xl">{announcement.icon}</span>
                     <div>
                       <p className="font-semibold text-slate-900 dark:text-white">{announcement.title}</p>
-                      <p className="mt-1 text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                        {announcement.date}
-                      </p>
+                      <p className="mt-1 text-xs uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500">{announcement.date}</p>
                     </div>
                   </div>
-                  <p className="mt-3 text-sm text-slate-500 dark:text-slate-300">{announcement.description}</p>
+                  <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-300">{announcement.description}</p>
                 </div>
               ))}
             </div>
           </section>
 
-          <section className="rounded-3xl bg-white/80 p-6 shadow-soft backdrop-blur transition dark:bg-slate-900/60">
+          <section className="rounded-[28px] border border-white/60 bg-white/95 p-6 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.35)] backdrop-blur dark:border-white/10 dark:bg-slate-900/60">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Quick actions</h2>
             <div className="mt-4 space-y-3">
-              <Link
-                to="#"
-                className="flex items-center justify-between rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-white/10"
-              >
-                <span className="flex items-center gap-3">
-                  <span>🚀</span>
-                  Submit new project
-                </span>
-                <span>→</span>
-              </Link>
-              <Link
-                to="#"
-                className="flex items-center justify-between rounded-2xl bg-white/70 px-4 py-3 text-sm font-semibold text-slate-700 shadow-inner transition hover:-translate-y-0.5 hover:shadow-soft dark:bg-slate-800/80 dark:text-slate-100"
-              >
-                <span className="flex items-center gap-3">
-                  <span>📂</span>
-                  Check feedback
-                </span>
-                <span>→</span>
-              </Link>
-              <Link
-                to="#"
-                className="flex items-center justify-between rounded-2xl bg-white/70 px-4 py-3 text-sm font-semibold text-slate-700 shadow-inner transition hover:-translate-y-0.5 hover:shadow-soft dark:bg-slate-800/80 dark:text-slate-100"
-              >
-                <span className="flex items-center gap-3">
-                  <span>💬</span>
-                  Ask for help
-                </span>
-                <span>→</span>
-              </Link>
-              <Link
-                to="#"
-                className="flex items-center justify-between rounded-2xl bg-white/70 px-4 py-3 text-sm font-semibold text-slate-700 shadow-inner transition hover:-translate-y-0.5 hover:shadow-soft dark:bg-slate-800/80 dark:text-slate-100"
-              >
-                <span className="flex items-center gap-3">
-                  <span>🤝</span>
-                  Join study group
-                </span>
-                <span>→</span>
-              </Link>
+              {quickActions.map((action, index) => (
+                <Link
+                  key={action.id}
+                  to="#"
+                  className={`flex items-center justify-between rounded-[20px] px-4 py-3 text-sm font-semibold transition ${
+                    index === 0
+                      ? "bg-slate-900 text-white shadow-lg hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-white/10"
+                      : "bg-white/80 text-slate-700 shadow-inner hover:-translate-y-0.5 hover:shadow-lg dark:bg-slate-800/60 dark:text-slate-100"
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <span>{action.icon}</span>
+                    {action.label}
+                  </span>
+                  <span>→</span>
+                </Link>
+              ))}
             </div>
           </section>
 
-          <section className="rounded-3xl bg-white/80 p-6 shadow-soft backdrop-blur transition dark:bg-slate-900/60">
+          <section className="rounded-[28px] border border-white/60 bg-white/95 p-6 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.35)] backdrop-blur dark:border-white/10 dark:bg-slate-900/60">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Learning pulse</h2>
             <div className="mt-4 space-y-3">
               {learningPulse.map((pulse) => (
                 <div
                   key={pulse.id}
-                  className="rounded-2xl border border-white/60 bg-white/70 p-4 text-sm shadow-inner transition hover:-translate-y-0.5 hover:shadow-soft dark:border-white/10 dark:bg-slate-900/40"
+                  className="rounded-[20px] border border-white/60 bg-white/90 p-4 text-sm shadow-inner transition hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10 dark:bg-slate-900/50"
                 >
-                  <div className="flex items-center justify-between text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500">
                     <span>{pulse.type === "event" ? "Upcoming" : pulse.type === "milestone" ? "Milestone" : "Reminder"}</span>
                     {pulse.action && (
-                      <button className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-slate-700 dark:bg-white/10 dark:text-white">
+                      <button className="rounded-full bg-slate-900 px-3 py-1 text-white shadow-md transition hover:-translate-y-0.5 hover:bg-slate-700 dark:bg-white/10 dark:text-white">
                         {pulse.action}
                       </button>
                     )}
                   </div>
                   <p className="mt-3 text-base font-semibold text-slate-900 dark:text-white">{pulse.title}</p>
-                  <p className="mt-2 text-sm text-slate-500 dark:text-slate-300">{pulse.description}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-300">{pulse.description}</p>
                 </div>
               ))}
             </div>
           </section>
+
+          <section className="rounded-[28px] border border-white/60 bg-white/95 p-6 shadow-[0_30px_60px_-40px_rgba(15,23,42,0.35)] backdrop-blur dark:border-white/10 dark:bg-slate-900/60">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Learning goals</h2>
+            <ul className="mt-4 space-y-3 text-sm text-slate-500 dark:text-slate-300">
+              {learningGoals.map((goal) => (
+                <li key={goal.id} className="flex items-center gap-3 rounded-[18px] bg-white/80 px-4 py-3 shadow-inner transition hover:-translate-y-0.5 hover:shadow-lg dark:bg-slate-800/60">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-200">✓</span>
+                  {goal.label}
+                </li>
+              ))}
+            </ul>
+          </section>
         </aside>
       </div>
 
-      <section className="grid gap-6 lg:grid-cols-[1.2fr,1fr]">
-        <div className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-inner transition dark:border-white/10 dark:bg-slate-900/60">
-          <p className="text-sm uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500">Quote of the day</p>
-          <blockquote className="mt-4 text-lg font-medium text-slate-700 dark:text-slate-200">
-            “{quote.text}”
-          </blockquote>
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">— {quote.author}</p>
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr),minmax(0,1fr)]">
+        <div className="relative overflow-hidden rounded-[32px] border border-white/60 bg-white/95 p-6 shadow-[0_40px_80px_-40px_rgba(15,23,42,0.25)] dark:border-slate-800/60 dark:bg-slate-900/70">
+          <div className="pointer-events-none absolute -right-10 top-10 h-32 w-32 rounded-full bg-emerald-200/50 blur-3xl" />
+          <div className="relative">
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Quest of the day</p>
+            <blockquote className="mt-6 text-xl font-medium leading-relaxed text-slate-700 dark:text-slate-200">
+              “{quote.text}”
+            </blockquote>
+            <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">— {quote.author}</p>
+          </div>
         </div>
-        <div className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-inner transition dark:border-white/10 dark:bg-slate-900/60">
+        <div className="rounded-[32px] border border-white/60 bg-white/95 p-6 shadow-[0_40px_80px_-40px_rgba(15,23,42,0.25)] dark:border-slate-800/60 dark:bg-slate-900/70">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Achievement showcase</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {achievements.map((achievement) => (
               <div
                 key={achievement.id}
-                className={`flex flex-col gap-2 rounded-2xl border border-white/60 p-4 transition hover:-translate-y-0.5 hover:shadow-soft dark:border-white/10 ${
-                  achievement.unlocked ? "bg-emerald-100/60 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-100" : "bg-white/80 text-slate-600 dark:bg-slate-800/60 dark:text-slate-200"
+                className={`flex flex-col gap-2 rounded-[24px] border border-white/60 p-4 transition hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10 ${
+                  achievement.unlocked ? "bg-emerald-100/70 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-100" : "bg-white/80 text-slate-600 dark:bg-slate-800/60 dark:text-slate-200"
                 }`}
               >
                 <div className="flex items-center justify-between text-sm font-semibold">
-                  <span className="text-xl">{achievement.icon}</span>
-                  <span className={`rounded-full px-3 py-1 text-[11px] uppercase tracking-wide ${achievement.unlocked ? "bg-white/90 text-emerald-600 dark:bg-slate-900/60 dark:text-emerald-200" : "bg-slate-900 text-white dark:bg-white/10"}`}>
+                  <span className="text-2xl">{achievement.icon}</span>
+                  <span className={`rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.25em] ${achievement.unlocked ? "bg-white/90 text-emerald-600 dark:bg-slate-900/60 dark:text-emerald-200" : "bg-slate-900 text-white dark:bg-white/10"}`}>
                     {achievement.unlocked ? "Unlocked" : "Locked"}
                   </span>
                 </div>
@@ -590,7 +651,7 @@ const DashboardPage = () => {
                   <p className="text-sm font-semibold">{achievement.title}</p>
                   <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-300">{achievement.description}</p>
                 </div>
-                <p className="text-xs font-medium text-slate-400 dark:text-slate-500">{achievement.progressText}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">{achievement.progressText}</p>
               </div>
             ))}
           </div>
