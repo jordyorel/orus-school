@@ -25,6 +25,23 @@ type ProgressResponse = {
   completion_rate: number;
 };
 
+type Achievement = {
+  id: number;
+  icon: string;
+  title: string;
+  description: string;
+  unlocked: boolean;
+  progressText: string;
+};
+
+type LearningPulse = {
+  id: number;
+  title: string;
+  description: string;
+  type: "event" | "milestone" | "reminder";
+  action?: string;
+};
+
 const yearLabels: Record<number, string> = {
   1: "Foundations",
   2: "Advanced & Specializations"
@@ -163,6 +180,71 @@ const DashboardPage = () => {
       ? `Keep going! You're only ${projectsAway} project${projectsAway === 1 ? "" : "s"} away from unlocking Year 2 🚀`
       : "Finish your remaining projects to unlock the next adventure!";
 
+  const achievements: Achievement[] = useMemo(() => {
+    return [
+      {
+        id: 1,
+        icon: "🌱",
+        title: "First Steps",
+        description: "Submit your first project to kickstart your journey.",
+        unlocked: completedCourses >= 1,
+        progressText: completedCourses >= 1 ? "Unlocked" : "Complete 1 project"
+      },
+      {
+        id: 2,
+        icon: "🔥",
+        title: "Momentum Builder",
+        description: "Keep a streak by working on two courses in parallel.",
+        unlocked: inProgressCourses >= 2 || completedCourses >= 2,
+        progressText: inProgressCourses >= 2 || completedCourses >= 2 ? "Unlocked" : "Start a second course"
+      },
+      {
+        id: 3,
+        icon: "🛠️",
+        title: "Halfway Hero",
+        description: "Reach a 50% completion milestone across your roadmap.",
+        unlocked: completionRate >= 50,
+        progressText: completionRate >= 50 ? "Unlocked" : "Hit 50% completion"
+      },
+      {
+        id: 4,
+        icon: "🚀",
+        title: "Launch Day",
+        description: "Get ready to showcase your mastery with 90% completion.",
+        unlocked: completionRate >= 90,
+        progressText: completionRate >= 90 ? "Unlocked" : "Reach 90% completion"
+      }
+    ];
+  }, [completedCourses, inProgressCourses, completionRate]);
+
+  const learningPulse: LearningPulse[] = useMemo(() => {
+    return [
+      {
+        id: 1,
+        title: "Project feedback drop",
+        description: "Mentors will review submissions every Tuesday and Friday.",
+        type: "event",
+        action: "Add to calendar"
+      },
+      {
+        id: 2,
+        title: "Community code jam",
+        description: "Pair up with another learner this weekend and build together.",
+        type: "milestone",
+        action: "Reserve a seat"
+      },
+      {
+        id: 3,
+        title: "Deep focus sprint",
+        description: "Block 45 minutes today to push your current project forward.",
+        type: "reminder",
+        action: "Start timer"
+      }
+    ];
+  }, []);
+
+  const nextAchievement = achievements.find((achievement) => !achievement.unlocked);
+
   const quoteIndex = useMemo(() => (new Date().getDate() % quotes.length), []);
   const quote = quotes[quoteIndex];
 
@@ -188,12 +270,14 @@ const DashboardPage = () => {
 
   return (
     <div className="space-y-10">
-      <section className="rounded-3xl bg-white/80 p-6 shadow-soft backdrop-blur transition dark:bg-slate-900/60 sm:p-8">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="relative inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-sky-500 text-2xl font-semibold text-white shadow-glow">
-              {initials || "👩‍🎓"}
-            </div>
+      <section className="relative overflow-hidden rounded-3xl bg-white/80 p-6 shadow-soft backdrop-blur transition dark:bg-slate-900/60 sm:p-8">
+        <div className="pointer-events-none absolute inset-0 opacity-40 [background:radial-gradient(circle_at_top_left,rgba(56,189,248,0.25),transparent_55%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.2),transparent_65%)] dark:opacity-60" />
+        <div className="relative">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="relative inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-sky-500 text-2xl font-semibold text-white shadow-glow">
+                {initials || "👩‍🎓"}
+              </div>
             <div>
               <p className="text-sm font-medium text-slate-500 dark:text-slate-400">👋 Welcome back</p>
               <h1 className="text-2xl font-semibold text-slate-900 dark:text-white sm:text-3xl">{user?.name}</h1>
@@ -215,11 +299,11 @@ const DashboardPage = () => {
             </button>
           </div>
         </div>
-        <div className="mt-6 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-2xl border border-white/60 bg-white/60 p-4 shadow-inner transition hover:-translate-y-0.5 hover:shadow-soft dark:border-white/10 dark:bg-white/5">
-            <p className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Completed</p>
-            <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{completedCourses}</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Out of {totalCourses} courses</p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-2xl border border-white/60 bg-white/60 p-4 shadow-inner transition hover:-translate-y-0.5 hover:shadow-soft dark:border-white/10 dark:bg-white/5">
+              <p className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Completed</p>
+              <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{completedCourses}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Out of {totalCourses} courses</p>
           </div>
           <div className="rounded-2xl border border-white/60 bg-white/60 p-4 shadow-inner transition hover:-translate-y-0.5 hover:shadow-soft dark:border-white/10 dark:bg-white/5">
             <p className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">In progress</p>
@@ -231,6 +315,21 @@ const DashboardPage = () => {
             <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">Year {unlockedYear}</p>
             <p className="text-sm text-slate-500 dark:text-slate-400">{currentYearLabel}</p>
           </div>
+          </div>
+          {nextAchievement && (
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-dashed border-emerald-300/60 bg-emerald-50/40 p-4 text-sm text-emerald-700 shadow-inner transition dark:border-emerald-300/40 dark:bg-emerald-500/10 dark:text-emerald-200">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{nextAchievement.icon}</span>
+                <div>
+                  <p className="font-semibold">Next badge: {nextAchievement.title}</p>
+                  <p className="text-xs text-emerald-600/80 dark:text-emerald-200/80">{nextAchievement.progressText}</p>
+                </div>
+              </div>
+              <span className="rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white shadow-soft dark:bg-emerald-400 dark:text-slate-900">
+                Keep climbing!
+              </span>
+            </div>
+          )}
         </div>
       </section>
 
@@ -425,17 +524,77 @@ const DashboardPage = () => {
                 </span>
                 <span>→</span>
               </Link>
+              <Link
+                to="#"
+                className="flex items-center justify-between rounded-2xl bg-white/70 px-4 py-3 text-sm font-semibold text-slate-700 shadow-inner transition hover:-translate-y-0.5 hover:shadow-soft dark:bg-slate-800/80 dark:text-slate-100"
+              >
+                <span className="flex items-center gap-3">
+                  <span>🤝</span>
+                  Join study group
+                </span>
+                <span>→</span>
+              </Link>
+            </div>
+          </section>
+
+          <section className="rounded-3xl bg-white/80 p-6 shadow-soft backdrop-blur transition dark:bg-slate-900/60">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Learning pulse</h2>
+            <div className="mt-4 space-y-3">
+              {learningPulse.map((pulse) => (
+                <div
+                  key={pulse.id}
+                  className="rounded-2xl border border-white/60 bg-white/70 p-4 text-sm shadow-inner transition hover:-translate-y-0.5 hover:shadow-soft dark:border-white/10 dark:bg-slate-900/40"
+                >
+                  <div className="flex items-center justify-between text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                    <span>{pulse.type === "event" ? "Upcoming" : pulse.type === "milestone" ? "Milestone" : "Reminder"}</span>
+                    {pulse.action && (
+                      <button className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-slate-700 dark:bg-white/10 dark:text-white">
+                        {pulse.action}
+                      </button>
+                    )}
+                  </div>
+                  <p className="mt-3 text-base font-semibold text-slate-900 dark:text-white">{pulse.title}</p>
+                  <p className="mt-2 text-sm text-slate-500 dark:text-slate-300">{pulse.description}</p>
+                </div>
+              ))}
             </div>
           </section>
         </aside>
       </div>
 
-      <section className="rounded-3xl border border-white/60 bg-white/70 p-6 text-center shadow-inner transition dark:border-white/10 dark:bg-slate-900/60">
-        <p className="text-sm uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500">Quote of the day</p>
-        <blockquote className="mt-4 text-lg font-medium text-slate-700 dark:text-slate-200">
-          “{quote.text}”
-        </blockquote>
-        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">— {quote.author}</p>
+      <section className="grid gap-6 lg:grid-cols-[1.2fr,1fr]">
+        <div className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-inner transition dark:border-white/10 dark:bg-slate-900/60">
+          <p className="text-sm uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500">Quote of the day</p>
+          <blockquote className="mt-4 text-lg font-medium text-slate-700 dark:text-slate-200">
+            “{quote.text}”
+          </blockquote>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">— {quote.author}</p>
+        </div>
+        <div className="rounded-3xl border border-white/60 bg-white/70 p-6 shadow-inner transition dark:border-white/10 dark:bg-slate-900/60">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Achievement showcase</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {achievements.map((achievement) => (
+              <div
+                key={achievement.id}
+                className={`flex flex-col gap-2 rounded-2xl border border-white/60 p-4 transition hover:-translate-y-0.5 hover:shadow-soft dark:border-white/10 ${
+                  achievement.unlocked ? "bg-emerald-100/60 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-100" : "bg-white/80 text-slate-600 dark:bg-slate-800/60 dark:text-slate-200"
+                }`}
+              >
+                <div className="flex items-center justify-between text-sm font-semibold">
+                  <span className="text-xl">{achievement.icon}</span>
+                  <span className={`rounded-full px-3 py-1 text-[11px] uppercase tracking-wide ${achievement.unlocked ? "bg-white/90 text-emerald-600 dark:bg-slate-900/60 dark:text-emerald-200" : "bg-slate-900 text-white dark:bg-white/10"}`}>
+                    {achievement.unlocked ? "Unlocked" : "Locked"}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">{achievement.title}</p>
+                  <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-300">{achievement.description}</p>
+                </div>
+                <p className="text-xs font-medium text-slate-400 dark:text-slate-500">{achievement.progressText}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
     </div>
   );
