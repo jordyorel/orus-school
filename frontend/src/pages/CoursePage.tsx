@@ -987,13 +987,35 @@ const CoursePage = () => {
   );
 
   const curriculumSections = useMemo<CurriculumSection[]>(() => {
-    const baseLessonItems = sortedLessons.map((lesson, index) => ({
-      id: lesson.id,
-      title: lesson.title,
-      kind: "lesson" as const,
-      meta: `Lesson ${index + 1}`,
-      status: lessonStatusMap.get(lesson.id) ?? "locked"
-    }));
+    const baseLessonItems = sortedLessons.map((lesson, index) => {
+      const lessonStatus = lessonStatusMap.get(lesson.id) ?? "locked";
+      const exerciseItems = lesson.exercises.map((exercise, exerciseIndex) => {
+        const progressStatus = exercise.progress?.status === "passed";
+        const status: LessonStatus = lessonStatus === "locked"
+          ? "locked"
+          : progressStatus
+          ? "completed"
+          : "in_progress";
+        return {
+          id: exercise.id,
+          title: exercise.title,
+          kind: "exercise" as const,
+          meta: `Exercise ${exerciseIndex + 1}`,
+          lessonId: lesson.id,
+          status,
+          disabled: lessonStatus === "locked"
+        } satisfies CurriculumSection["items"][number];
+      });
+
+      return {
+        id: lesson.id,
+        title: lesson.title,
+        kind: "lesson" as const,
+        meta: `Lesson ${index + 1}`,
+        status: lessonStatus,
+        items: exerciseItems
+      } satisfies CurriculumSection["items"][number];
+    });
 
     if (isDemoMode) {
       const moduleStatus: LessonStatus = baseLessonItems.every((item) => item.status === "completed")
@@ -1263,7 +1285,7 @@ const CoursePage = () => {
                   activeExerciseId={activeExerciseId}
                   curriculumSections={curriculumSections}
                   onLessonSelect={(lesson) => handleLessonSelect(lesson.id)}
-                  onExerciseSelect={(exercise) => handleExerciseSelect(exercise.lesson_id, exercise.id)}
+                  onExerciseSelect={(exercise) => handleExerciseSelect(exercise.lessonId, exercise.id)}
                 />
               </div>
             </div>

@@ -1,6 +1,6 @@
 export type LessonStatus = "completed" | "in_progress" | "locked";
 
-export type CurriculumItemKind = "module" | "lesson" | "project" | "topic";
+export type CurriculumItemKind = "module" | "lesson" | "project" | "topic" | "exercise";
 
 export type CurriculumItem = {
   id?: number;
@@ -10,6 +10,7 @@ export type CurriculumItem = {
   meta?: string;
   items?: CurriculumItem[];
   disabled?: boolean;
+  lessonId?: number;
 };
 
 export type CurriculumSection = {
@@ -19,10 +20,20 @@ export type CurriculumSection = {
   items: CurriculumItem[];
 };
 
+export type CurriculumLessonItem = CurriculumItem & { id: number; kind: "lesson" };
+
+export type CurriculumExerciseItem = CurriculumItem & {
+  id: number;
+  kind: "exercise";
+  lessonId: number;
+};
+
 type CourseSidebarProps = {
-  sections: CurriculumSection[];
+  curriculumSections: CurriculumSection[];
   activeLessonId: number | null;
-  onSelect: (lessonId: number) => void;
+  activeExerciseId: number | null;
+  onLessonSelect: (lesson: CurriculumLessonItem) => void;
+  onExerciseSelect?: (exercise: CurriculumExerciseItem) => void;
 };
 
 const statusStyles: Record<LessonStatus, { badge: string; label: string; icon: string }> = {
@@ -46,29 +57,60 @@ const statusStyles: Record<LessonStatus, { badge: string; label: string; icon: s
 const renderNode = (
   node: CurriculumItem,
   depth: number,
-  activeLessonId: number | null,
-  onSelect: (lessonId: number) => void
+  props: {
+    activeLessonId: number | null;
+    activeExerciseId: number | null;
+    onLessonSelect: (lesson: CurriculumLessonItem) => void;
+    onExerciseSelect?: (exercise: CurriculumExerciseItem) => void;
+  },
+  parentLessonId?: number
 ) => {
-  const key = typeof node.id === "number" ? `lesson-${node.id}` : `${node.kind}-${node.title}-${depth}`;
+  const key =
+    typeof node.id === "number"
+      ? `${node.kind}-${node.id}`
+      : `${node.kind}-${node.title}-${depth}-${parentLessonId ?? "root"}`;
   const hasChildren = (node.items?.length ?? 0) > 0;
   const isLesson = node.kind === "lesson" && typeof node.id === "number";
-  const isActive = isLesson && node.id === activeLessonId;
+  const isExercise = node.kind === "exercise" && typeof node.id === "number";
   const status = node.status;
-  const disabled = node.disabled || status === "locked" || !isLesson;
+
+  const effectiveLessonId = isLesson
+    ? node.id
+    : isExercise
+    ? node.lessonId ?? parentLessonId
+    : parentLessonId;
+
+  const isActiveLesson = isLesson && node.id === props.activeLessonId;
+  const isActiveExercise = isExercise && node.id === props.activeExerciseId;
+
+  const disabled =
+    node.disabled ||
+    status === "locked" ||
+    (!isLesson && !isExercise) ||
+    (isExercise && (effectiveLessonId === undefined || props.onExerciseSelect === undefined));
 
   const baseClasses =
     "flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500";
 
-  const activeClasses =
+  const activeLessonClasses =
     "border-sky-400 bg-sky-50 shadow-sm dark:border-sky-500/70 dark:bg-sky-500/10";
+  const activeExerciseClasses =
+    "border-emerald-400 bg-emerald-500/10 text-emerald-700 shadow-sm dark:border-emerald-400/70 dark:bg-emerald-500/10 dark:text-emerald-200";
   const inactiveClasses =
     "border-slate-200 bg-white hover:-translate-y-0.5 hover:shadow-sm dark:border-slate-700 dark:bg-slate-900";
   const staticClasses =
     "border-dashed border-slate-200 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-800/40";
 
-  const containerClasses = isLesson
-    ? `${baseClasses} ${isActive ? activeClasses : inactiveClasses}`
-    : `${baseClasses} ${staticClasses}`;
+  const containerClasses =
+    isLesson || isExercise
+      ? `${baseClasses} ${
+          isActiveLesson || isActiveExercise
+            ? isActiveExercise
+              ? activeExerciseClasses
+              : activeLessonClasses
+            : inactiveClasses
+        }`
+      : `${baseClasses} ${staticClasses}`;
 
   const sharedProps = {
     className: `${containerClasses} ${disabled ? "disabled:cursor-not-allowed disabled:opacity-60" : ""}`,
@@ -83,11 +125,19 @@ const renderNode = (
             {node.meta}
           </div>
         ) : null}
-        <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">{node.title}</div>
+        <div
+          className={`truncate text-sm font-semibold ${
+            isActiveExercise ? "text-emerald-700 dark:text-emerald-200" : "text-slate-900 dark:text-white"
+          }`}
+        >
+          {node.title}
+        </div>
       </div>
       {status ? (
         <span
-          className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${statusStyles[status].badge}`}
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+            statusStyles[status].badge
+          }`}
         >
           <span aria-hidden="true">{statusStyles[status].icon}</span>
           <span>{statusStyles[status].label}</span>
@@ -96,15 +146,21 @@ const renderNode = (
     </>
   );
 
+  const handleClick = () => {
+    if (disabled) return;
+    if (isLesson) {
+      props.onLessonSelect({ ...(node as CurriculumLessonItem) });
+      return;
+    }
+    if (isExercise && props.onExerciseSelect && typeof node.id === "number" && effectiveLessonId !== undefined) {
+      props.onExerciseSelect({ ...(node as CurriculumExerciseItem), lessonId: effectiveLessonId });
+    }
+  };
+
   return (
     <div key={key} className="space-y-2">
-      {isLesson ? (
-        <button
-          type="button"
-          onClick={() => (disabled || typeof node.id !== "number" ? undefined : onSelect(node.id))}
-          disabled={disabled}
-          {...sharedProps}
-        >
+      {isLesson || isExercise ? (
+        <button type="button" onClick={handleClick} disabled={disabled} {...sharedProps}>
           {content}
         </button>
       ) : (
@@ -112,18 +168,30 @@ const renderNode = (
       )}
       {hasChildren ? (
         <div className="space-y-1">
-          {node.items!.map((child) => renderNode(child, depth + 1, activeLessonId, onSelect))}
+          {node.items!.map((child) =>
+            renderNode(child, depth + 1, props, isLesson ? (typeof node.id === "number" ? node.id : parentLessonId) : effectiveLessonId)
+          )}
         </div>
       ) : null}
     </div>
   );
 };
 
-const CourseSidebar = ({ sections, activeLessonId, onSelect }: CourseSidebarProps) => {
+const CourseSidebar = ({
+  curriculumSections,
+  activeLessonId,
+  activeExerciseId,
+  onLessonSelect,
+  onExerciseSelect
+}: CourseSidebarProps) => {
   return (
     <nav className="space-y-5" aria-label="Course navigation">
-      {sections.map((section) => (
-        <details key={section.id} className="group space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm open:bg-white dark:border-slate-700 dark:bg-slate-900" open>
+      {curriculumSections.map((section) => (
+        <details
+          key={section.id}
+          className="group space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm open:bg-white dark:border-slate-700 dark:bg-slate-900"
+          open
+        >
           <summary className="cursor-pointer list-none">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -140,7 +208,9 @@ const CourseSidebar = ({ sections, activeLessonId, onSelect }: CourseSidebarProp
             </div>
           </summary>
           <div className="space-y-2">
-            {section.items.map((item) => renderNode(item, 1, activeLessonId, onSelect))}
+            {section.items.map((item) =>
+              renderNode(item, 1, { activeLessonId, activeExerciseId, onLessonSelect, onExerciseSelect })
+            )}
           </div>
         </details>
       ))}
