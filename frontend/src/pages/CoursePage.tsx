@@ -67,6 +67,74 @@ export type CourseLessonsResponse = {
 
 const EMPTY_EXERCISES: ExerciseDetail[] = [];
 
+const DEFAULT_WORKSPACE_LAYOUT: [number, number] = [35, 65];
+const DEFAULT_EDITOR_LAYOUT: [number, number] = [62, 38];
+const WORKSPACE_LAYOUT_STORAGE_KEY = "course-workspace-layout";
+const EDITOR_LAYOUT_STORAGE_KEY = "course-editor-layout";
+
+const sanitizeStoredLayout = (
+  value: unknown,
+  fallback: [number, number]
+): [number, number] => {
+  if (!Array.isArray(value) || value.length !== 2) {
+    return fallback;
+  }
+
+  const [first, second] = value;
+
+  if (typeof first !== "number" || typeof second !== "number") {
+    return fallback;
+  }
+
+  if (!Number.isFinite(first) || !Number.isFinite(second) || first <= 0 || second <= 0) {
+    return fallback;
+  }
+
+  const total = first + second;
+  if (!Number.isFinite(total) || total <= 0) {
+    return fallback;
+  }
+
+  const scale = 100 / total;
+  const normalized: [number, number] = [
+    Math.round(first * scale * 100) / 100,
+    Math.round(second * scale * 100) / 100
+  ];
+
+  return normalized;
+};
+
+const readStoredLayout = (key: string, fallback: [number, number]): [number, number] => {
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+
+  try {
+    const stored = window.localStorage.getItem(key);
+    if (!stored) {
+      return fallback;
+    }
+
+    const parsed = JSON.parse(stored) as unknown;
+    return sanitizeStoredLayout(parsed, fallback);
+  } catch (error) {
+    console.warn(`Unable to read saved layout for ${key}`, error);
+    return fallback;
+  }
+};
+
+const persistLayout = (key: string, layout: [number, number]) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(key, JSON.stringify(layout));
+  } catch (error) {
+    console.warn(`Unable to persist layout for ${key}`, error);
+  }
+};
+
 const demoCourse: Course = {
   id: 0,
   title: "C Basics: Pointers & Memory",
@@ -629,6 +697,12 @@ const CoursePage = () => {
     return localStorage.getItem("orus-course-theme") !== "light";
   });
   const [isEditorFullscreen, setIsEditorFullscreen] = useState(false);
+  const [workspaceLayout, setWorkspaceLayout] = useState<[number, number]>(() =>
+    readStoredLayout(WORKSPACE_LAYOUT_STORAGE_KEY, DEFAULT_WORKSPACE_LAYOUT)
+  );
+  const [editorLayout, setEditorLayout] = useState<[number, number]>(() =>
+    readStoredLayout(EDITOR_LAYOUT_STORAGE_KEY, DEFAULT_EDITOR_LAYOUT)
+  );
 
   const activeLessonRef = useRef<number | null>(null);
   const activeExerciseRef = useRef<number | null>(null);
@@ -666,6 +740,36 @@ const CoursePage = () => {
   useEffect(() => {
     activeExerciseRef.current = activeExerciseId;
   }, [activeExerciseId]);
+
+  const handleWorkspaceLayoutChange = useCallback((sizes: number[]) => {
+    if (sizes.length !== 2) return;
+    const next: [number, number] = [sizes[0], sizes[1]];
+    setWorkspaceLayout((prev) => {
+      if (Math.abs(prev[0] - next[0]) < 0.1 && Math.abs(prev[1] - next[1]) < 0.1) {
+        return prev;
+      }
+      return next;
+    });
+  }, []);
+
+  const handleEditorLayoutChange = useCallback((sizes: number[]) => {
+    if (sizes.length !== 2) return;
+    const next: [number, number] = [sizes[0], sizes[1]];
+    setEditorLayout((prev) => {
+      if (Math.abs(prev[0] - next[0]) < 0.1 && Math.abs(prev[1] - next[1]) < 0.1) {
+        return prev;
+      }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    persistLayout(WORKSPACE_LAYOUT_STORAGE_KEY, workspaceLayout);
+  }, [workspaceLayout]);
+
+  useEffect(() => {
+    persistLayout(EDITOR_LAYOUT_STORAGE_KEY, editorLayout);
+  }, [editorLayout]);
 
   const applyCourseData = useCallback((data: CourseLessonsResponse) => {
     setCourseData(data);
@@ -1467,35 +1571,35 @@ const CoursePage = () => {
   const feedbackHistory = activeExercise?.progress?.last_run_output ?? "";
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col bg-slate-100 dark:bg-slate-950">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-slate-100 dark:bg-slate-950">
       {isWorkspaceRoute ? (
-        <nav className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/70 bg-white/90 px-8 py-4 text-sm shadow-sm dark:border-slate-800/70 dark:bg-slate-900/80">
-          <div className="flex items-center gap-6">
+        <nav className="flex h-14 flex-none items-center justify-between gap-6 border-b border-slate-200/70 bg-white/95 px-6 text-sm shadow-sm dark:border-slate-800/70 dark:bg-slate-900/85">
+          <div className="flex items-center gap-5">
             <Link
               to="/app"
               className="flex items-center gap-2 text-lg font-semibold text-slate-900 transition-colors hover:text-sky-600 dark:text-white dark:hover:text-sky-400"
             >
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-sky-500 text-lg font-bold text-white shadow-soft">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-sky-500 text-base font-bold text-white shadow-soft">
                 O
               </span>
               <span>Orus School</span>
             </Link>
             <Link
               to="/app"
-              className="text-sm font-semibold text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+              className="text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
             >
               Dashboard
             </Link>
           </div>
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-4">
             <button
               onClick={() => setIsDarkMode((value) => !value)}
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 shadow-sm transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             >
               {isDarkMode ? "☀️ Light" : "🌙 Dark"}
             </button>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              <label htmlFor="nav-language" className="text-xs">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <label htmlFor="nav-language" className="text-[11px]">
                 Language
               </label>
               <select
@@ -1503,7 +1607,7 @@ const CoursePage = () => {
                 value={navLanguageDisabled ? "" : selectedLanguage}
                 onChange={(event) => setSelectedLanguage(event.target.value)}
                 disabled={navLanguageDisabled}
-                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
               >
                 {navLanguageDisabled ? (
                   <option value="" disabled>
@@ -1518,13 +1622,13 @@ const CoursePage = () => {
                 )}
               </select>
             </div>
-            <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white/80 px-3 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-800/70">
+            <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-800/70">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-sm font-semibold text-white">
                 {initials}
               </div>
               <div className="text-left">
-                <p className="text-sm font-semibold text-slate-900 dark:text-white">{displayName}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{profileSubline}</p>
+                <p className="text-sm font-semibold text-slate-900 leading-tight dark:text-white">{displayName}</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">{profileSubline}</p>
               </div>
               <button
                 type="button"
@@ -1536,7 +1640,7 @@ const CoursePage = () => {
             </div>
             <button
               onClick={handleLogout}
-              className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
+              className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-slate-800 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
             >
               Log out
             </button>
@@ -1544,14 +1648,19 @@ const CoursePage = () => {
         </nav>
       ) : null}
       {isDemoMode ? (
-        <div className={`${isWorkspaceRoute ? "px-8" : "px-6"} border-b border-amber-200/70 bg-amber-50/80 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100`}>
+        <div className={`${isWorkspaceRoute ? "px-8" : "px-6"} flex-none border-b border-amber-200/70 bg-amber-50/80 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100`}>
           You are exploring the interactive playground with sample data. Sign in to access your real courses and save progress.
         </div>
       ) : null}
-      <div className="flex flex-1 min-h-0">
-        <PanelGroup direction="horizontal" className="flex h-full w-full min-h-0 gap-0">
-          <Panel defaultSize={35} minSize={24} maxSize={46} className="min-h-0 overflow-hidden">
-            <div className="flex h-full min-h-0 flex-col border-r border-slate-200/70 bg-white dark:border-slate-800/60 dark:bg-slate-900">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <PanelGroup
+          direction="horizontal"
+          layout={workspaceLayout}
+          onLayout={handleWorkspaceLayoutChange}
+          className="flex h-full w-full min-h-0 min-w-0 gap-0"
+        >
+          <Panel defaultSize={35} minSize={24} maxSize={46} className="min-h-0 min-w-0 overflow-hidden">
+            <div className="flex h-full min-h-0 min-w-0 flex-col border-r border-slate-200/70 bg-white dark:border-slate-800/60 dark:bg-slate-900">
               <div className="flex items-center gap-6 border-b border-slate-200/70 px-6 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400">
                 {leftTabs.map((tab) => (
                   <button
@@ -1760,10 +1869,15 @@ const CoursePage = () => {
             </div>
           </Panel>
           <ResizeHandle orientation="vertical" />
-          <Panel defaultSize={65} minSize={45} className="min-h-0 overflow-hidden">
-            <PanelGroup direction="vertical" className="flex h-full w-full min-h-0 gap-0">
-              <Panel defaultSize={62} minSize={40} className="min-h-0 overflow-hidden">
-                <div className="flex h-full flex-col bg-white dark:bg-slate-900">
+          <Panel defaultSize={65} minSize={45} className="min-h-0 min-w-0 overflow-hidden">
+            <PanelGroup
+              direction="vertical"
+              layout={editorLayout}
+              onLayout={handleEditorLayoutChange}
+              className="flex h-full w-full min-h-0 min-w-0 gap-0"
+            >
+              <Panel defaultSize={62} minSize={40} className="min-h-0 min-w-0 overflow-hidden">
+                <div className="flex h-full min-h-0 min-w-0 flex-col bg-white dark:bg-slate-900">
                   <div className="flex flex-col gap-4 border-b border-slate-200 px-6 py-4 dark:border-slate-800">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div className="space-y-1">
@@ -1851,7 +1965,7 @@ const CoursePage = () => {
                       </span>
                     </div>
                   </div>
-                  <div className="flex-1 overflow-hidden px-6 pb-6">
+                  <div className="flex-1 min-h-0 overflow-hidden px-6 pb-6">
                     {!isEditorFullscreen ? (
                       <CodeEditor
                         language={selectedLanguage}
@@ -1870,8 +1984,8 @@ const CoursePage = () => {
                 </div>
               </Panel>
               <ResizeHandle orientation="horizontal" />
-              <Panel defaultSize={38} minSize={32} className="min-h-0 overflow-hidden">
-                <div className="flex h-full flex-col bg-white dark:bg-slate-900">
+              <Panel defaultSize={38} minSize={32} className="min-h-0 min-w-0 overflow-hidden">
+                <div className="flex h-full min-h-0 min-w-0 flex-col bg-white dark:bg-slate-900">
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-3 dark:border-slate-800">
                     <div className="flex flex-wrap items-center gap-2">
                       {outputTabs.map((tab) => (
@@ -1896,7 +2010,7 @@ const CoursePage = () => {
                       Submit Code
                     </button>
                   </div>
-                  <div className="flex-1 overflow-hidden">
+                  <div className="flex-1 min-h-0 overflow-hidden">
                     {outputTab === "console" ? (
                       <pre className="h-full w-full overflow-y-auto bg-slate-950 p-4 font-mono text-xs text-emerald-200">
                         {consoleOutput || "Run your code to see stdout and stderr here."}
