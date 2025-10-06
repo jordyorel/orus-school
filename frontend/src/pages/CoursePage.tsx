@@ -135,6 +135,51 @@ const persistLayout = (key: string, layout: [number, number]) => {
   }
 };
 
+const useDebouncedLayoutPersistence = (
+  key: string,
+  layout: [number, number],
+  delay = 200
+) => {
+  const latestLayoutRef = useRef(layout);
+  const timeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    latestLayoutRef.current = layout;
+  }, [layout]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (timeoutRef.current !== null) {
+      window.clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = window.setTimeout(() => {
+      persistLayout(key, latestLayoutRef.current);
+      timeoutRef.current = null;
+    }, delay);
+
+    return () => {
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [key, delay, layout]);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+        persistLayout(key, latestLayoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [key]);
+};
+
 const FullscreenIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -823,13 +868,8 @@ const CoursePage = () => {
     });
   }, []);
 
-  useEffect(() => {
-    persistLayout(WORKSPACE_LAYOUT_STORAGE_KEY, workspaceLayout);
-  }, [workspaceLayout]);
-
-  useEffect(() => {
-    persistLayout(PLAYGROUND_LAYOUT_STORAGE_KEY, playgroundLayout);
-  }, [playgroundLayout]);
+  useDebouncedLayoutPersistence(WORKSPACE_LAYOUT_STORAGE_KEY, workspaceLayout);
+  useDebouncedLayoutPersistence(PLAYGROUND_LAYOUT_STORAGE_KEY, playgroundLayout);
 
   useEffect(() => {
     if (typeof window === "undefined") {
