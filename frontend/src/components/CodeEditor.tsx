@@ -1,5 +1,4 @@
-import { useMemo } from "react";
-import Editor, { Monaco } from "@monaco-editor/react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 
 export type CodeEditorProps = {
   language: string;
@@ -8,17 +7,99 @@ export type CodeEditorProps = {
   theme: "light" | "dark";
 };
 
+type Monaco = typeof import("monaco-editor");
+
+type MonacoEditorProps = {
+  height: string;
+  defaultLanguage: string;
+  language: string;
+  value: string;
+  theme: string;
+  onChange: (value: string | undefined) => void;
+  options: {
+    minimap: { enabled: boolean };
+    fontSize: number;
+    scrollBeyondLastLine: boolean;
+    automaticLayout: boolean;
+    smoothScrolling: boolean;
+  };
+  beforeMount: (monaco: Monaco) => void;
+};
+
+type MonacoEditorModule = {
+  default: ComponentType<MonacoEditorProps>;
+};
+
+let monacoModulePromise: Promise<MonacoEditorModule | null> | null = null;
+
+const loadMonacoEditor = () => {
+  if (!monacoModulePromise) {
+    monacoModulePromise = import(
+      /* @vite-ignore */ "@monaco-editor/react"
+    )
+      .then((module) => module as MonacoEditorModule)
+      .catch((error) => {
+        console.warn(
+          "Falling back to the basic textarea editor because @monaco-editor/react could not be loaded."
+        );
+        console.warn(error);
+        return null;
+      });
+  }
+
+  return monacoModulePromise;
+};
+
 const CodeEditor = ({ language, code, onChange, theme }: CodeEditorProps) => {
+  const [monacoModule, setMonacoModule] = useState<MonacoEditorModule | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const editorLanguage = useMemo(() => language.toLowerCase(), [language]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadMonacoEditor().then((module) => {
+      if (cancelled) {
+        return;
+      }
+
+      setMonacoModule(module);
+      setLoadFailed(module === null);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleBeforeMount = (monaco: Monaco) => {
     monaco.languages.typescript.typescriptDefaults.setEagerModelSync(true);
     monaco.languages.typescript.javascriptDefaults.setEagerModelSync(true);
   };
 
+  if (!monacoModule) {
+    return (
+      <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm dark:border-slate-700">
+        <textarea
+          className="h-[400px] w-full resize-none overflow-auto border-0 p-4 font-mono text-sm outline-none focus:ring-2 focus:ring-blue-200 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-blue-500"
+          value={code}
+          onChange={(event) => onChange(event.target.value)}
+          spellCheck={false}
+        />
+        {loadFailed ? (
+          <p className="border-t border-slate-200 bg-slate-50 p-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+            Install <code>@monaco-editor/react</code> to enable the rich Monaco code editor.
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  const EditorComponent = monacoModule.default;
+
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm dark:border-slate-700">
-      <Editor
+      <EditorComponent
         height="400px"
         defaultLanguage={editorLanguage}
         language={editorLanguage}
