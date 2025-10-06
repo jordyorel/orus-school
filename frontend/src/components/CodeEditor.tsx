@@ -5,6 +5,8 @@ export type CodeEditorProps = {
   code: string;
   onChange: (value: string) => void;
   theme: "light" | "dark";
+  height?: string | number;
+  className?: string;
 };
 
 type Monaco = typeof import("monaco-editor");
@@ -50,10 +52,16 @@ const loadMonacoEditor = () => {
   return monacoModulePromise;
 };
 
-const CodeEditor = ({ language, code, onChange, theme }: CodeEditorProps) => {
+const CodeEditor = ({ language, code, onChange, theme, height, className }: CodeEditorProps) => {
   const [monacoModule, setMonacoModule] = useState<MonacoEditorModule | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const editorLanguage = useMemo(() => language.toLowerCase(), [language]);
+  const resolvedHeight = useMemo(() => {
+    if (typeof height === "number") {
+      return `${height}px`;
+    }
+    return height ?? "400px";
+  }, [height]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,9 +87,12 @@ const CodeEditor = ({ language, code, onChange, theme }: CodeEditorProps) => {
 
   if (!monacoModule) {
     return (
-      <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm dark:border-slate-700">
+      <div
+        className={`overflow-hidden rounded-2xl border border-slate-200 shadow-sm dark:border-slate-700 ${className ?? ""}`}
+        style={{ height: resolvedHeight }}
+      >
         <textarea
-          className="h-[400px] w-full resize-none overflow-auto border-0 p-4 font-mono text-sm outline-none focus:ring-2 focus:ring-blue-200 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-blue-500"
+          className="h-full w-full resize-none overflow-auto border-0 p-4 font-mono text-sm outline-none focus:ring-2 focus:ring-blue-200 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-blue-500"
           value={code}
           onChange={(event) => onChange(event.target.value)}
           spellCheck={false}
@@ -98,9 +109,12 @@ const CodeEditor = ({ language, code, onChange, theme }: CodeEditorProps) => {
   const EditorComponent = monacoModule.default;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm dark:border-slate-700">
+    <div
+      className={`overflow-hidden rounded-2xl border border-slate-200 shadow-sm dark:border-slate-700 ${className ?? ""}`}
+      style={{ height: resolvedHeight }}
+    >
       <EditorComponent
-        height="400px"
+        height={resolvedHeight}
         defaultLanguage={editorLanguage}
         language={editorLanguage}
         value={code}

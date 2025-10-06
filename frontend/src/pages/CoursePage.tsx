@@ -2,13 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../api";
 import CodeEditor from "../components/CodeEditor";
-import ConsoleTabs from "../components/ConsoleTabs";
 import CourseSidebar, { CurriculumSection, LessonStatus } from "../components/CourseSidebar";
-import InstructionPanel from "../components/InstructionPanel";
-import LessonNotes from "../components/LessonNotes";
 import ProgressBar from "../components/ProgressBar";
 import VideoPlayer from "../components/VideoPlayer";
 import { useAuth } from "../context";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 
 export type Course = {
   id: number;
@@ -66,6 +64,8 @@ export type CourseLessonsResponse = {
   lessons: LessonDetail[];
   course_progress: CourseProgressSummary;
 };
+
+const EMPTY_EXERCISES: ExerciseDetail[] = [];
 
 const demoCourse: Course = {
   id: 0,
@@ -385,7 +385,7 @@ export type TestCaseResult = {
   input_data?: string | null;
 };
 
-type EditorState = Record<number, Record<string, string>>;
+type EditorState = Record<number, Record<string, Record<string, string>>>;
 
 type ConsoleResult = {
   id: number | string;
@@ -426,14 +426,16 @@ const createRunLog = (exerciseSlug: string, lines: string[]): string => {
 
 const demoExerciseSimulations: Record<number, DemoSimulation> = {
   1001: {
-    run: (_code: string) =>
-      createRunLog("ft_strlen", [
+    run: (code: string) => {
+      void code;
+      return createRunLog("ft_strlen", [
         'Input: "Orus School"',
         "Computed length: 11",
         "Remember: the null terminator is not counted in the length.",
         "",
         "Try modifying the string above to see the log update."
-      ]),
+      ]);
+    },
     tests: [
       {
         id: "strlen-1",
@@ -460,13 +462,15 @@ const demoExerciseSimulations: Record<number, DemoSimulation> = {
     message: "Nice work! You've reproduced ft_strlen and cleared the first milestone."
   },
   1002: {
-    run: (_code: string) =>
-      createRunLog("ft_strcpy", [
+    run: (code: string) => {
+      void code;
+      return createRunLog("ft_strcpy", [
         'Destination buffer before: ""',
         'Copying from src: "pointers rock"',
         'Destination buffer after: "pointers rock"',
         "Return pointer matches dest ✔"
-      ]),
+      ]);
+    },
     tests: [
       {
         id: "strcpy-1",
@@ -493,13 +497,15 @@ const demoExerciseSimulations: Record<number, DemoSimulation> = {
     message: "Copy complete! Your ft_strcpy behaves like the standard library call."
   },
   1003: {
-    run: (_code: string) =>
-      createRunLog("ft_strcmp", [
+    run: (code: string) => {
+      void code;
+      return createRunLog("ft_strcmp", [
         'Comparing "apple" vs "apple" → 0',
         'Comparing "libft" vs "piscine" → -4',
         'Comparing "xyz" vs "abc" → 23',
         "Cast to unsigned char before subtracting to avoid surprises."
-      ]),
+      ]);
+    },
     tests: [
       {
         id: "strcmp-1",
@@ -526,13 +532,15 @@ const demoExerciseSimulations: Record<number, DemoSimulation> = {
     message: "Pointer wizardry unlocked! ft_strcmp now mirrors the libc behaviour."
   },
   1004: {
-    run: (_code: string) =>
-      createRunLog("ft_calloc", [
+    run: (code: string) => {
+      void code;
+      return createRunLog("ft_calloc", [
         "Request: 5 blocks × 4 bytes",
         "Allocation succeeded → pointer 0x1000",
         "Memory preview: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
         "Remember to free the buffer when you're done."
-      ]),
+      ]);
+    },
     tests: [
       {
         id: "calloc-1",
@@ -560,6 +568,25 @@ const demoExerciseSimulations: Record<number, DemoSimulation> = {
   }
 };
 
+const demoExerciseHints: Record<number, string[]> = {
+  1001: [
+    "Iterate one character at a time and stop when you encounter the null terminator.",
+    "Use a size_t accumulator so the function works for long strings."
+  ],
+  1002: [
+    "Copy the terminating null byte after the loop completes.",
+    "Returning dest lets callers chain the function just like the standard library."
+  ],
+  1003: [
+    "Compare unsigned char values to avoid surprises with negative chars.",
+    "Exit early as soon as characters differ to return the lexicographic gap."
+  ],
+  1004: [
+    "Check if count * size would overflow before allocating.",
+    "Use a helper to zero-out the buffer just like memset does."
+  ]
+};
+
 const CoursePage = () => {
   const { courseId } = useParams();
   const numericCourseId = Number(courseId);
@@ -570,8 +597,10 @@ const CoursePage = () => {
   const [activeExerciseId, setActiveExerciseId] = useState<number | null>(null);
   const [editorValues, setEditorValues] = useState<EditorState>({});
   const [selectedLanguage, setSelectedLanguage] = useState<string>("python");
-  const [consoleTab, setConsoleTab] = useState<"console" | "tests" | "feedback">("console");
+  const [solutionTab, setSolutionTab] = useState<"solution1" | "solution2" | "solution3">("solution1");
   const [consoleOutput, setConsoleOutput] = useState<string>("");
+  const [outputTab, setOutputTab] = useState<"console" | "raw" | "custom">("console");
+  const [testSectionTab, setTestSectionTab] = useState<"tests" | "quick" | "sandbox">("tests");
   const [testResults, setTestResults] = useState<ConsoleResult[]>([]);
   const [isDarkEditor, setIsDarkEditor] = useState(true);
   const [runLoading, setRunLoading] = useState(false);
@@ -579,9 +608,20 @@ const CoursePage = () => {
   const [lessonMarkLoading, setLessonMarkLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [lessonPanelOpen, setLessonPanelOpen] = useState(true);
+  const [videoPanelOpen, setVideoPanelOpen] = useState(true);
+  const [exercisePanelOpen, setExercisePanelOpen] = useState(true);
+  const [videoWatched, setVideoWatched] = useState(false);
+  const [customInput, setCustomInput] = useState("");
+  const [customOutput, setCustomOutput] = useState("");
+  const [sandboxNotes, setSandboxNotes] = useState("");
+  const [autosaveStatus, setAutosaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [hintStates, setHintStates] = useState<Record<number, boolean>>({});
 
   const activeLessonRef = useRef<number | null>(null);
   const activeExerciseRef = useRef<number | null>(null);
+  const restoredDraftsRef = useRef<Set<string>>(new Set());
+  const storageKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     activeLessonRef.current = activeLessonId;
@@ -596,14 +636,31 @@ const CoursePage = () => {
 
     setEditorValues((prev) => {
       const next: EditorState = { ...prev };
+      const solutionKeys: Array<typeof solutionTab> = ["solution1", "solution2", "solution3"];
+
       data.lessons.forEach((lesson) => {
         lesson.exercises.forEach((exercise) => {
-          next[exercise.id] = {
-            ...exercise.starter_code,
-            ...(prev[exercise.id] ?? {})
-          };
+          const existingExerciseState = next[exercise.id] ?? {};
+          const starterEntries = Object.entries(exercise.starter_code ?? {});
+          const updatedLanguageState: Record<string, Record<string, string>> = { ...existingExerciseState };
+
+          starterEntries.forEach(([language, starter]) => {
+            const existingLanguageState = existingExerciseState[language] ?? {};
+            const languageState: Record<string, string> = { ...existingLanguageState };
+
+            solutionKeys.forEach((key, index) => {
+              if (!(key in languageState)) {
+                languageState[key] = index === 0 ? starter : existingLanguageState[key] ?? starter;
+              }
+            });
+
+            updatedLanguageState[language] = languageState;
+          });
+
+          next[exercise.id] = updatedLanguageState;
         });
       });
+
       return next;
     });
 
@@ -775,7 +832,7 @@ const CoursePage = () => {
     ];
   }, [sortedLessons, lessonStatusMap, isDemoMode, courseData?.course.id]);
 
-  const exercises = activeLesson?.exercises ?? [];
+  const exercises = activeLesson?.exercises ?? EMPTY_EXERCISES;
 
   const activeExercise = useMemo(
     () => exercises.find((exercise) => exercise.id === activeExerciseId) ?? exercises[0] ?? null,
@@ -805,6 +862,47 @@ const CoursePage = () => {
       total: activeLesson.exercises.length
     };
   }, [activeLesson, activeExercise]);
+
+  const testsPassed = useMemo(
+    () => testResults.length > 0 && testResults.every((result) => result.passed),
+    [testResults]
+  );
+
+  const lessonObjectives = useMemo(() => {
+    if (!activeLesson) {
+      return [];
+    }
+    return [
+      {
+        id: "video",
+        label: "Watch the explanation video",
+        checked: videoWatched
+      },
+      {
+        id: "tests",
+        label: "Pass all configured tests",
+        checked: testsPassed
+      },
+      {
+        id: "notes",
+        label: "Review the written notes",
+        checked: Boolean(activeLesson.notes)
+      }
+    ];
+  }, [activeLesson, videoWatched, testsPassed]);
+
+  const exerciseHints = useMemo(() => {
+    if (!activeExercise) {
+      return [];
+    }
+    if (isDemoMode && demoExerciseHints[activeExercise.id]) {
+      return demoExerciseHints[activeExercise.id];
+    }
+    return [
+      "Break the problem into small helper functions before coding.",
+      "Use the provided tests tab to validate edge cases."
+    ];
+  }, [activeExercise, isDemoMode]);
 
   const lessonExerciseStats = useMemo(() => {
     if (!activeLesson) {
@@ -863,6 +961,47 @@ const CoursePage = () => {
     return nextLessonTitle ? `Next class · ${nextLessonTitle}` : "Next class";
   }, [nextExerciseCandidate, activeLesson, nextExerciseLesson]);
 
+  const readyForNextLesson = videoWatched && testsPassed;
+
+  const solutionTabs = [
+    { id: "solution1" as const, label: "Solution 1" },
+    { id: "solution2" as const, label: "Solution 2" },
+    { id: "solution3" as const, label: "Solution 3" }
+  ];
+
+  const outputTabs = [
+    { id: "console" as const, label: "Console" },
+    { id: "raw" as const, label: "Raw Output" },
+    { id: "custom" as const, label: "Custom Output" }
+  ];
+
+  const testSectionTabs = [
+    { id: "tests" as const, label: "Tests" },
+    { id: "quick" as const, label: "Quick Test" },
+    { id: "sandbox" as const, label: "Sandbox" }
+  ];
+
+  const autosaveCopy =
+    autosaveStatus === "saving"
+      ? "Saving draft..."
+      : autosaveStatus === "saved"
+      ? "Draft saved"
+      : "Autosave ready";
+
+  const ResizeHandle = ({ orientation }: { orientation: "horizontal" | "vertical" }) => (
+    <PanelResizeHandle
+      className={`group flex flex-none items-center justify-center ${
+        orientation === "vertical" ? "w-3" : "h-3"
+      }`}
+    >
+      <div
+        className={`rounded-full bg-slate-300/80 transition group-hover:bg-sky-400/80 dark:bg-slate-700/80 dark:group-hover:bg-sky-500/80 ${
+          orientation === "vertical" ? "h-24 w-1" : "h-1 w-24"
+        }`}
+      />
+    </PanelResizeHandle>
+  );
+
   useEffect(() => {
     if (!activeExercise) return;
     const languages = Object.keys(activeExercise.starter_code ?? {});
@@ -875,14 +1014,66 @@ const CoursePage = () => {
   const editorCode = useMemo(() => {
     if (!activeExercise) return "";
     const exerciseState = editorValues[activeExercise.id] ?? {};
-    return exerciseState[selectedLanguage] ?? activeExercise.starter_code[selectedLanguage] ?? "";
-  }, [activeExercise, editorValues, selectedLanguage]);
+    const languageState = exerciseState[selectedLanguage] ?? {};
+    return languageState[solutionTab] ?? activeExercise.starter_code[selectedLanguage] ?? "";
+  }, [activeExercise, editorValues, selectedLanguage, solutionTab]);
+
+  const storageKey = useMemo(() => {
+    if (!activeExercise) return null;
+    return `orus-course-${activeExercise.id}-${selectedLanguage}-${solutionTab}`;
+  }, [activeExercise, selectedLanguage, solutionTab]);
+
+  useEffect(() => {
+    storageKeyRef.current = storageKey;
+    if (!storageKey) {
+      setAutosaveStatus("idle");
+    }
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!storageKey || !activeExercise) return;
+    if (restoredDraftsRef.current.has(storageKey)) return;
+
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored !== null) {
+        setEditorValues((prev) => ({
+          ...prev,
+          [activeExercise.id]: {
+            ...(prev[activeExercise.id] ?? {}),
+            [selectedLanguage]: {
+              ...((prev[activeExercise.id]?.[selectedLanguage] ?? {}) as Record<string, string>),
+              [solutionTab]: stored
+            }
+          }
+        }));
+        setAutosaveStatus("saved");
+      }
+    } catch (error) {
+      console.warn("Unable to restore saved draft", error);
+    } finally {
+      restoredDraftsRef.current.add(storageKey);
+    }
+  }, [storageKey, activeExercise, selectedLanguage, solutionTab]);
+
+  useEffect(() => {
+    if (autosaveStatus !== "saving") return;
+    const timeout = window.setTimeout(() => setAutosaveStatus("saved"), 500);
+    return () => window.clearTimeout(timeout);
+  }, [autosaveStatus, editorCode]);
 
   const handleLessonSelect = (lessonId: number) => {
     setSuccessMessage(null);
     setConsoleOutput("");
     setTestResults([]);
     setActiveLessonId(lessonId);
+    setVideoWatched(false);
+    setSolutionTab("solution1");
+    setOutputTab("console");
+    setTestSectionTab("tests");
+    setCustomInput("");
+    setCustomOutput("");
+    setSandboxNotes("");
     const lesson = lessons.find((item) => item.id === lessonId);
     const firstExercise = lesson?.exercises[0];
     setActiveExerciseId(firstExercise?.id ?? null);
@@ -903,6 +1094,12 @@ const CoursePage = () => {
     setConsoleOutput("");
     setTestResults([]);
     setActiveExerciseId(exerciseId);
+    setSolutionTab("solution1");
+    setOutputTab("console");
+    setTestSectionTab("tests");
+    setCustomInput("");
+    setCustomOutput("");
+    setSandboxNotes("");
     const exercise = exercises.find((item) => item.id === exerciseId);
     if (exercise) {
       const languages = Object.keys(exercise.starter_code ?? {});
@@ -916,15 +1113,81 @@ const CoursePage = () => {
     }
   };
 
+  useEffect(() => {
+    setVideoWatched(false);
+  }, [activeLessonId]);
+
+  useEffect(() => {
+    setSolutionTab("solution1");
+    setOutputTab("console");
+    setTestSectionTab("tests");
+    setCustomInput("");
+    setCustomOutput("");
+    setSandboxNotes("");
+    setAutosaveStatus("idle");
+  }, [activeExerciseId]);
+
+  const handleRunQuickTest = () => {
+    setTestSectionTab("quick");
+    setOutputTab("custom");
+    if (!customInput.trim()) {
+      setCustomOutput("Provide an input case to try a quick run.");
+      return;
+    }
+    setCustomOutput(
+      `Quick test executed with your draft.\nInput:\n${customInput}\n\nReview the console tab for stdout and stderr.`
+    );
+  };
+
+  const handleSandboxRun = () => {
+    setTestSectionTab("sandbox");
+    const timestamp = new Date().toLocaleTimeString();
+    setSandboxNotes((notes) =>
+      notes ? `${notes}\n\nRun logged at ${timestamp}.` : `Run logged at ${timestamp}.`
+    );
+  };
+
+  const handleSubmitCode = () => {
+    if (!activeExercise) return;
+    if (!testsPassed) {
+      setSuccessMessage("Run and pass the tests before submitting.");
+      return;
+    }
+    setSuccessMessage("Submission received 🎉 Your mentor will review it shortly.");
+  };
+
+  const toggleHint = (index: number) => {
+    setHintStates((prev) => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
+
+  const handleMarkVideoWatched = () => {
+    setVideoWatched(true);
+  };
+
   const handleEditorChange = (value: string) => {
     if (!activeExercise) return;
     setEditorValues((prev) => ({
       ...prev,
       [activeExercise.id]: {
         ...(prev[activeExercise.id] ?? {}),
-        [selectedLanguage]: value
+        [selectedLanguage]: {
+          ...((prev[activeExercise.id]?.[selectedLanguage] ?? {}) as Record<string, string>),
+          [solutionTab]: value
+        }
       }
     }));
+
+    if (storageKeyRef.current) {
+      try {
+        localStorage.setItem(storageKeyRef.current, value);
+        setAutosaveStatus("saving");
+      } catch (error) {
+        console.warn("Unable to persist draft", error);
+      }
+    }
   };
 
   const handleGoToNextExercise = () => {
@@ -939,7 +1202,7 @@ const CoursePage = () => {
   const handleRunCode = async () => {
     if (!activeExercise) return;
     setRunLoading(true);
-    setConsoleTab("console");
+    setOutputTab("console");
     setSuccessMessage(null);
     if (isDemoMode) {
       await new Promise((resolve) => setTimeout(resolve, 300));
@@ -971,7 +1234,8 @@ const CoursePage = () => {
   const handleRunTests = async () => {
     if (!activeExercise) return;
     setTestLoading(true);
-    setConsoleTab("tests");
+    setTestSectionTab("tests");
+    setOutputTab("console");
     setSuccessMessage(null);
     setTestResults([]);
     if (isDemoMode) {
@@ -1120,7 +1384,8 @@ const CoursePage = () => {
 
   const lessonCompleted = Boolean(activeLesson?.progress?.completed);
   const progressSummary = courseData.course_progress;
-  const courseIsLocked = lessonStatusEntries.length > 0 && lessonStatusEntries.every((entry) => entry.status === "locked");
+  const courseIsLocked =
+    lessonStatusEntries.length > 0 && lessonStatusEntries.every((entry) => entry.status === "locked");
   const courseStatusInfo = courseIsLocked
     ? {
         icon: "🔒",
@@ -1140,17 +1405,19 @@ const CoursePage = () => {
       };
 
   const displayName = user?.name ?? "Guest Student";
-  const initials = displayName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((segment) => segment.charAt(0).toUpperCase())
-    .join("") || "GS";
+  const initials =
+    displayName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((segment) => segment.charAt(0).toUpperCase())
+      .join("") || "GS";
 
   const profileSubline = isDemoMode ? "Demo student" : "Student workspace";
+  const nextButtonDisabled = !nextExerciseCandidate || !readyForNextLesson;
 
   return (
-    <div className="space-y-6">
+    <div className="flex min-h-[85vh] flex-col gap-6">
       {isDemoMode ? (
         <div className="rounded-3xl border border-amber-300 bg-amber-50 p-5 text-sm text-amber-800 shadow-sm dark:border-amber-400/60 dark:bg-amber-500/10 dark:text-amber-100">
           You are exploring the interactive playground with sample data. Sign in to access your real courses and save progress.
@@ -1211,188 +1478,418 @@ const CoursePage = () => {
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/40">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Exercises passed
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Exercises passed</p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
               {progressSummary.exercises_completed} / {progressSummary.exercises_total}
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/40">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
-              {courseStatusInfo.label}
-            </p>
+            <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{courseStatusInfo.label}</p>
           </div>
         </div>
       </header>
-
-      <div className="grid gap-6 2xl:grid-cols-[420px,minmax(0,1fr)]">
-        <div className="space-y-6">
-          {activeLesson ? (
-            <>
-              <section className="space-y-5 rounded-3xl border border-transparent bg-gradient-to-br from-white via-sky-50 to-slate-100 p-6 shadow-lg dark:from-slate-900 dark:via-slate-900 dark:to-slate-950">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="space-y-2">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">
-                      Current class
-                    </span>
-                    <h2 className="text-xl font-semibold text-slate-900 dark:text-white">{activeLesson.title}</h2>
-                    <p className="max-w-xl text-sm text-slate-600 dark:text-slate-300">{activeLesson.description}</p>
-                  </div>
-                  <div className="w-full max-w-[240px] space-y-3 rounded-2xl bg-white/70 p-4 text-slate-700 shadow-sm backdrop-blur dark:bg-slate-900/60 dark:text-slate-200">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Lesson progress</p>
-                    <ProgressBar value={lessonExerciseStats.percentage} label="Exercises completed" size="sm" />
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {lessonExerciseStats.completed} of {lessonExerciseStats.total} exercises complete
-                    </p>
-                  </div>
-                </div>
-                <VideoPlayer url={activeLesson.video_url} title={activeLesson.title} />
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Current exercise</p>
-                    <p className="text-base font-semibold text-slate-900 dark:text-white">
-                      {activeExercise?.title ?? "Select an exercise"}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {exercisePosition ? `Exercise ${exercisePosition.number} of ${exercisePosition.total}` : ""}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-1 flex-col gap-4 rounded-3xl border border-slate-200 bg-white/70 p-4 shadow-lg dark:border-slate-700 dark:bg-slate-900/60">
+        <PanelGroup direction="horizontal" className="flex h-full min-h-[640px] w-full gap-4">
+          <Panel defaultSize={35} minSize={25} maxSize={45} className="overflow-hidden">
+            <div className="flex h-full flex-col gap-4 overflow-hidden">
+              <section className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <button
+                  type="button"
+                  onClick={() => setLessonPanelOpen((value) => !value)}
+                  className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:text-slate-300"
+                >
+                  <span>Current Lesson</span>
+                  <span className="text-xs">{lessonPanelOpen ? "▾" : "▸"}</span>
+                </button>
+                {lessonPanelOpen && activeLesson ? (
+                  <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
+                    <div className="space-y-2">
+                      <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{activeLesson.title}</h2>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">{activeLesson.description}</p>
+                    </div>
+                    <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/60">
+                      <ProgressBar value={lessonExerciseStats.percentage} label="Exercises completed" size="sm" />
+                      <ul className="space-y-2">
+                        {lessonObjectives.map((objective) => (
+                          <li
+                            key={objective.id}
+                            className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300"
+                          >
+                            <span
+                              className={`flex h-5 w-5 items-center justify-center rounded border ${
+                                objective.checked
+                                  ? "border-emerald-400 bg-emerald-100 text-emerald-700 dark:border-emerald-400/60 dark:bg-emerald-500/10 dark:text-emerald-200"
+                                  : "border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-800"
+                              }`}
+                            >
+                              {objective.checked ? "✓" : ""}
+                            </span>
+                            <span>{objective.label}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                     <button
                       onClick={handleMarkLessonComplete}
                       disabled={lessonMarkLoading || lessonCompleted}
-                      className="inline-flex items-center gap-2 rounded-full border border-emerald-400/80 bg-white/70 px-4 py-2 text-sm font-semibold text-emerald-600 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-500 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-500/60 dark:bg-emerald-500/10 dark:text-emerald-200"
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {lessonCompleted ? "Lesson completed" : lessonMarkLoading ? "Marking..." : "Mark lesson complete"}
+                      {lessonCompleted ? "Lesson completed" : lessonMarkLoading ? "Marking..." : "Mark lesson completed"}
                     </button>
-                    <button
-                      onClick={handleGoToNextExercise}
-                      disabled={!nextExerciseCandidate}
-                      className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <span>{nextExerciseLabel}</span>
-                      <span aria-hidden="true">→</span>
-                    </button>
-                  </div>
-                </div>
-              </section>
-              <InstructionPanel
-                title={activeExercise?.title ?? "Exercise"}
-                instructions={activeExercise?.instructions ?? "Select an exercise to view the requirements."}
-              />
-              <LessonNotes content={activeLesson.notes} />
-            </>
-          ) : (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-              No lessons available yet.
-            </div>
-          )}
-          <section className="space-y-4 rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Course roadmap</p>
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Stay on track</h2>
-              </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">
-                {progressSummary.lessons_completed} / {progressSummary.lessons_total} classes · {progressSummary.exercises_completed} / {progressSummary.exercises_total} exercises
-              </div>
-            </div>
-            <CourseSidebar sections={curriculumSections} activeLessonId={activeLesson?.id ?? null} onSelect={handleLessonSelect} />
-          </section>
-        </div>
-        <div className="space-y-6">
-          {activeLesson ? (
-            <>
-              <section className="space-y-4 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-lg dark:border-slate-700 dark:bg-slate-900/70">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="space-y-1">
-                    <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Code workspace</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      Experiment with your solution, then run it or verify against the tests.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="exercise-select">
-                      Exercise
-                    </label>
-                    <select
-                      id="exercise-select"
-                      value={activeExercise?.id ?? ""}
-                      onChange={(event) => handleExerciseChange(Number(event.target.value))}
-                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                    >
-                      {exercises.map((exercise) => (
-                        <option key={exercise.id} value={exercise.id}>
-                          {exercise.title}
-                        </option>
-                      ))}
-                    </select>
-                    <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="language-select">
-                      Language
-                    </label>
-                    <select
-                      id="language-select"
-                      value={selectedLanguage}
-                      onChange={(event) => setSelectedLanguage(event.target.value)}
-                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                    >
-                      {availableLanguages.map((language) => (
-                        <option key={language} value={language}>
-                          {language.toUpperCase()}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <CodeEditor
-                  language={selectedLanguage}
-                  code={editorCode}
-                  onChange={handleEditorChange}
-                  theme={isDarkEditor ? "dark" : "light"}
-                />
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    onClick={handleRunCode}
-                    disabled={runLoading}
-                    className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"
-                  >
-                    {runLoading ? "Running..." : "Run code"}
-                  </button>
-                  <button
-                    onClick={handleRunTests}
-                    disabled={testLoading}
-                    className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {testLoading ? "Checking tests..." : "Run tests"}
-                  </button>
-                  <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    {activeExercise?.tests_count ?? 0} tests configured
-                  </span>
-                </div>
-                {successMessage ? (
-                  <div className="rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700 dark:border-emerald-500/50 dark:bg-emerald-500/10 dark:text-emerald-200">
-                    {successMessage}
                   </div>
                 ) : null}
               </section>
-              <section className="rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-lg dark:border-slate-700 dark:bg-slate-900/70">
-                <ConsoleTabs
-                  activeTab={consoleTab}
-                  onTabChange={setConsoleTab}
-                  consoleOutput={consoleOutput}
-                  testResults={testResults}
-                  feedback={successMessage ?? activeExercise?.progress?.last_error ?? undefined}
-                />
+              <section className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <button
+                  type="button"
+                  onClick={() => setVideoPanelOpen((value) => !value)}
+                  className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:text-slate-300"
+                >
+                  <span>Video Explanation</span>
+                  <span className="text-xs">{videoPanelOpen ? "▾" : "▸"}</span>
+                </button>
+                {videoPanelOpen && activeLesson ? (
+                  <div className="flex flex-col gap-4 p-4">
+                    <VideoPlayer url={activeLesson.video_url} title={activeLesson.title} />
+                    <div className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      <span>{videoWatched ? "Video marked as watched" : "Watch the video to unlock the next lesson."}</span>
+                      <button
+                        onClick={handleMarkVideoWatched}
+                        disabled={videoWatched}
+                        className="rounded-full bg-sky-600 px-4 py-2 text-[11px] font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {videoWatched ? "Watched" : "Mark as watched"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </section>
-            </>
-          ) : (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-              Select a lesson to open the coding workspace.
+              <section className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <button
+                  type="button"
+                  onClick={() => setExercisePanelOpen((value) => !value)}
+                  className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:text-slate-300"
+                >
+                  <span>Exercise</span>
+                  <span className="text-xs">{exercisePanelOpen ? "▾" : "▸"}</span>
+                </button>
+                {exercisePanelOpen && activeExercise ? (
+                  <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
+                    <div className="rounded-xl border border-slate-200 bg-white/80 p-4 text-sm leading-relaxed text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Prompt</h3>
+                      <div
+                        className="prose prose-slate mt-3 max-w-none text-sm dark:prose-invert"
+                        dangerouslySetInnerHTML={{ __html: activeExercise.instructions }}
+                      />
+                    </div>
+                    <div className="space-y-2 rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Hints</h3>
+                      {exerciseHints.map((hint, index) => (
+                        <div
+                          key={index}
+                          className="rounded-lg border border-slate-200 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-800/40"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleHint(index)}
+                            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-slate-600 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                          >
+                            <span>Hint {index + 1}</span>
+                            <span className="text-xs">{hintStates[index] ? "▾" : "▸"}</span>
+                          </button>
+                          {hintStates[index] ? (
+                            <p className="px-4 pb-4 text-sm text-slate-600 dark:text-slate-300">{hint}</p>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                    {activeLesson.notes ? (
+                      <div className="rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
+                        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Notes</h3>
+                        <div
+                          className="prose prose-slate mt-3 max-w-none text-sm dark:prose-invert"
+                          dangerouslySetInnerHTML={{ __html: activeLesson.notes }}
+                        />
+                      </div>
+                    ) : null}
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        {exercisePosition ? `Exercise ${exercisePosition.number} of ${exercisePosition.total}` : null}
+                      </div>
+                      <button
+                        onClick={handleGoToNextExercise}
+                        disabled={nextButtonDisabled}
+                        className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <span>{nextExerciseLabel}</span>
+                        <span aria-hidden="true">→</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+              <section className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <div className="border-b border-slate-200 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:text-slate-300">
+                  Course roadmap
+                </div>
+                <div className="flex-1 overflow-y-auto p-4">
+                  <CourseSidebar sections={curriculumSections} activeLessonId={activeLesson?.id ?? null} onSelect={handleLessonSelect} />
+                </div>
+              </section>
             </div>
-          )}
-        </div>
+          </Panel>
+          <ResizeHandle orientation="vertical" />
+          <Panel defaultSize={65} minSize={45} className="overflow-hidden">
+            <PanelGroup direction="vertical" className="flex h-full w-full gap-4">
+              <Panel defaultSize={60} minSize={40} className="overflow-hidden">
+                <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                  <div className="flex flex-col gap-4 border-b border-slate-200 p-4 dark:border-slate-700">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Code workspace</h2>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                          {activeExercise ? activeExercise.title : "Select an exercise to begin"}
+                        </p>
+                      </div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{autosaveCopy}</div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="exercise-select">
+                        Exercise
+                      </label>
+                      <select
+                        id="exercise-select"
+                        value={activeExercise?.id ?? ""}
+                        onChange={(event) => handleExerciseChange(Number(event.target.value))}
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                      >
+                        {exercises.map((exercise) => (
+                          <option key={exercise.id} value={exercise.id}>
+                            {exercise.title}
+                          </option>
+                        ))}
+                      </select>
+                      <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="language-select">
+                        Language
+                      </label>
+                      <select
+                        id="language-select"
+                        value={selectedLanguage}
+                        onChange={(event) => setSelectedLanguage(event.target.value)}
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                      >
+                        {availableLanguages.map((language) => (
+                          <option key={language} value={language}>
+                            {language.toUpperCase()}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {solutionTabs.map((tab) => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setSolutionTab(tab.id)}
+                          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                            solutionTab === tab.id
+                              ? "bg-sky-600 text-white"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex flex-1 flex-col">
+                    <div className="flex-1 overflow-hidden">
+                      <CodeEditor
+                        language={selectedLanguage}
+                        code={editorCode}
+                        onChange={handleEditorChange}
+                        theme={isDarkEditor ? "dark" : "light"}
+                        height="100%"
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/60 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/60">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button
+                          onClick={handleRunCode}
+                          disabled={runLoading}
+                          className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"
+                        >
+                          {runLoading ? "Running..." : "Run Code"}
+                        </button>
+                        <button
+                          onClick={handleRunTests}
+                          disabled={testLoading}
+                          className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {testLoading ? "Checking tests..." : "Run Tests"}
+                        </button>
+                        <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          {activeExercise?.tests_count ?? 0} tests configured
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Panel>
+              <ResizeHandle orientation="horizontal" />
+              <Panel defaultSize={40} minSize={35} className="overflow-hidden">
+                <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {outputTabs.map((tab) => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setOutputTab(tab.id)}
+                          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                            outputTab === tab.id
+                              ? "bg-sky-600 text-white"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={handleSubmitCode}
+                      disabled={!activeExercise}
+                      className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"
+                    >
+                      Submit Code
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    {outputTab === "console" ? (
+                      <pre className="h-full w-full overflow-y-auto bg-slate-950 p-4 font-mono text-xs text-emerald-200">
+                        {consoleOutput || "Run your code to see stdout and stderr here."}
+                      </pre>
+                    ) : null}
+                    {outputTab === "raw" ? (
+                      <pre className="h-full w-full overflow-y-auto bg-slate-900 p-4 font-mono text-xs text-slate-100">
+                        {consoleOutput || "No raw output yet. Run the code or tests to populate this panel."}
+                      </pre>
+                    ) : null}
+                    {outputTab === "custom" ? (
+                      <div className="flex h-full flex-col gap-3 overflow-y-auto p-4 text-sm text-slate-600 dark:text-slate-300">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" htmlFor="custom-input">
+                          Custom input
+                        </label>
+                        <textarea
+                          id="custom-input"
+                          value={customInput}
+                          onChange={(event) => setCustomInput(event.target.value)}
+                          className="h-24 rounded-lg border border-slate-200 bg-white p-2 font-mono text-xs text-slate-700 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                        />
+                        <button
+                          onClick={handleRunQuickTest}
+                          className="self-start rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-500"
+                        >
+                          Run quick test
+                        </button>
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 font-mono text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+                          {customOutput || "Results from quick tests will appear here."}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="border-t border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                      {testSectionTabs.map((tab) => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setTestSectionTab(tab.id)}
+                          className={`rounded-full px-3 py-1 ${
+                            testSectionTab === tab.id
+                              ? "bg-sky-600 text-white"
+                              : "bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800"
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex max-h-64 flex-col gap-4 overflow-y-auto p-4 text-sm text-slate-600 dark:text-slate-300">
+                      {testSectionTab === "tests" ? (
+                        testResults.length === 0 ? (
+                          <p>Run tests to see the detailed results.</p>
+                        ) : (
+                          testResults.map((result) => (
+                            <div
+                              key={result.id}
+                              className={`rounded-xl border p-4 ${
+                                result.passed
+                                  ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100"
+                                  : "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
+                                <span>{result.title}</span>
+                                <span>{result.passed ? "Pass" : "Fail"}</span>
+                              </div>
+                              <div className="mt-3 space-y-1 font-mono text-[11px]">
+                                {result.input ? (
+                                  <p>
+                                    <span className="font-semibold">Input:</span> {result.input}
+                                  </p>
+                                ) : null}
+                                <p>
+                                  <span className="font-semibold">Stdout:</span> {result.stdout || "(empty)"}
+                                </p>
+                                <p>
+                                  <span className="font-semibold">Stderr:</span> {result.stderr || "(empty)"}
+                                </p>
+                                {result.expected ? (
+                                  <p>
+                                    <span className="font-semibold">Expected:</span> {result.expected}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </div>
+                          ))
+                        )
+                      ) : null}
+                      {testSectionTab === "quick" ? (
+                        <div className="space-y-3">
+                          <p>Use the custom output tab above to provide input and run a quick check.</p>
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 font-mono text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+                            {customOutput || "No quick test run yet."}
+                          </div>
+                        </div>
+                      ) : null}
+                      {testSectionTab === "sandbox" ? (
+                        <div className="space-y-3">
+                          <p>Keep scratch notes or alternative approaches here while you iterate.</p>
+                          <textarea
+                            value={sandboxNotes}
+                            onChange={(event) => setSandboxNotes(event.target.value)}
+                            className="min-h-[96px] w-full rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                          />
+                          <button
+                            onClick={handleSandboxRun}
+                            className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900"
+                          >
+                            Log sandbox run
+                          </button>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">{sandboxNotes || "Nothing logged yet."}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                    {successMessage ? (
+                      <div className="border-t border-slate-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700 dark:border-slate-700 dark:bg-emerald-500/10 dark:text-emerald-200">
+                        {successMessage}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </Panel>
+            </PanelGroup>
+          </Panel>
+        </PanelGroup>
       </div>
     </div>
   );
