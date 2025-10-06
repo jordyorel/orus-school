@@ -201,7 +201,7 @@ const demoLessons: LessonDetail[] = [
     course_id: demoCourse.id,
     title: "Variables & Types",
     description: "Track how primitive values are stored in memory and practice reading diagrams.",
-    video_url: "https://www.youtube.com/embed/d1n2uuMLh9A",
+    video_url: "https://youtu.be/5ByDKD9-rE4",
     notes: `
       <h3>Variables &amp; Types</h3>
       <p>In C every variable maps to a region of memory. Understanding how bytes are laid out allows you to debug crashes and undefined behaviour.</p>
