@@ -1942,107 +1942,112 @@ const CoursePage = () => {
                   </div>
                 </div>
               </div>
-              <div className="flex flex-1 min-h-0 flex-col gap-6 px-6 py-6">
-                <div className="flex-[3] min-h-0 overflow-hidden rounded-2xl border border-white/10 bg-[#050d1c] shadow-[0_0_0_1px_rgba(15,23,42,0.4)]">
-                  {!isEditorFullscreen ? (
-                    <CodeEditor
-                      language={selectedLanguage}
-                      code={editorCode}
-                      onChange={handleEditorChange}
-                      theme={isDarkMode ? "dark" : "light"}
-                      height="100%"
-                      className="h-full"
-                      textareaClassName="h-full w-full resize-none border-0 bg-transparent p-6 font-mono text-sm text-slate-100 outline-none focus:ring-2 focus:ring-sky-500/40"
-                      unstyled
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                      Editor is open in fullscreen mode.
+              <div className="flex flex-1 min-h-0 flex-col px-6 py-6">
+                <PanelGroup direction="vertical" className="flex h-full flex-1 flex-col gap-4">
+                  <Panel defaultSize={65} minSize={40} className="min-h-[240px] overflow-hidden rounded-2xl border border-white/10 bg-[#050d1c] shadow-[0_0_0_1px_rgba(15,23,42,0.4)]">
+                    <div className="flex h-full min-h-0">
+                      {!isEditorFullscreen ? (
+                        <CodeEditor
+                          language={selectedLanguage}
+                          code={editorCode}
+                          onChange={handleEditorChange}
+                          theme={isDarkMode ? "dark" : "light"}
+                          height="100%"
+                          className="h-full"
+                          textareaClassName="h-full w-full resize-none border-0 bg-transparent p-6 font-mono text-sm text-slate-100 outline-none focus:ring-2 focus:ring-sky-500/40"
+                          unstyled
+                        />
+                      ) : (
+                        <div className="flex h-full flex-1 items-center justify-center text-sm text-slate-400">
+                          Editor is open in fullscreen mode.
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="flex flex-[2] min-h-[220px] flex-col rounded-2xl border border-white/10 bg-[#0f1b33] p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      {outputTabs.map((tab) => (
-                        <button
-                          key={tab.id}
-                          onClick={() => setOutputTab(tab.id)}
-                          className={`rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
-                            outputTab === tab.id
-                              ? "bg-white/15 text-white shadow"
-                              : "bg-white/5 text-slate-300 hover:bg-white/10"
-                          }`}
-                        >
-                          {tab.label}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      onClick={handleSubmitCode}
-                      disabled={!activeExercise}
-                      className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Submit Code
-                    </button>
-                  </div>
-                  <div className="mt-4 flex-1 overflow-hidden rounded-lg border border-white/10 bg-[#050d1c] p-4">
-                    {outputTab === "custom" ? (
-                      <pre className="h-full w-full overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-200">
-                        {consoleOutput || "Run or submit code when you're ready."}
-                      </pre>
-                    ) : (
-                      <div className="flex h-full flex-col gap-3 overflow-y-auto text-sm text-slate-200">
-                        {testResults.length === 0 && !successMessage && !feedbackHistory ? (
-                          <p className="text-slate-400">Run tests or submit code to see results here.</p>
-                        ) : null}
-                        {testResults.map((result) => (
-                          <div
-                            key={result.id}
-                            className={`rounded-lg border p-4 ${
-                              result.passed
-                                ? "border-emerald-400/50 bg-emerald-500/10 text-emerald-100"
-                                : "border-rose-500/60 bg-rose-500/10 text-rose-100"
+                  </Panel>
+                  <ResizeHandle orientation="horizontal" />
+                  <Panel defaultSize={35} minSize={20} className="flex min-h-[200px] flex-col rounded-2xl border border-white/10 bg-[#0f1b33] p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        {outputTabs.map((tab) => (
+                          <button
+                            key={tab.id}
+                            onClick={() => setOutputTab(tab.id)}
+                            className={`rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
+                              outputTab === tab.id
+                                ? "bg-white/15 text-white shadow"
+                                : "bg-white/5 text-slate-300 hover:bg-white/10"
                             }`}
                           >
-                            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
-                              <span>{result.title}</span>
-                              <span>{result.passed ? "Pass" : "Fail"}</span>
-                            </div>
-                            <div className="mt-3 space-y-1 font-mono text-[11px] text-white/90">
-                              {result.input ? (
-                                <p>
-                                  <span className="font-semibold">Input:</span> {result.input}
-                                </p>
-                              ) : null}
-                              <p>
-                                <span className="font-semibold">Stdout:</span> {result.stdout || "(empty)"}
-                              </p>
-                              <p>
-                                <span className="font-semibold">Stderr:</span> {result.stderr || "(empty)"}
-                              </p>
-                              {result.expected ? (
-                                <p>
-                                  <span className="font-semibold">Expected:</span> {result.expected}
-                                </p>
-                              ) : null}
-                            </div>
-                          </div>
+                            {tab.label}
+                          </button>
                         ))}
-                        {successMessage ? (
-                          <div className="rounded-lg border border-emerald-400/60 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-                            {successMessage}
-                          </div>
-                        ) : null}
-                        {feedbackHistory ? (
-                          <pre className="whitespace-pre-wrap rounded-lg border border-white/10 bg-white/5 p-4 font-mono text-xs text-slate-200">
-                            {feedbackHistory}
-                          </pre>
-                        ) : null}
                       </div>
-                    )}
-                  </div>
-                </div>
+                      <button
+                        onClick={handleSubmitCode}
+                        disabled={!activeExercise}
+                        className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Submit Code
+                      </button>
+                    </div>
+                    <div className="mt-4 flex-1 overflow-hidden rounded-lg border border-white/10 bg-[#050d1c] p-4">
+                      {outputTab === "custom" ? (
+                        <pre className="h-full w-full overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-200">
+                          {consoleOutput || "Run or submit code when you're ready."}
+                        </pre>
+                      ) : (
+                        <div className="flex h-full flex-col gap-3 overflow-y-auto text-sm text-slate-200">
+                          {testResults.length === 0 && !successMessage && !feedbackHistory ? (
+                            <p className="text-slate-400">Run tests or submit code to see results here.</p>
+                          ) : null}
+                          {testResults.map((result) => (
+                            <div
+                              key={result.id}
+                              className={`rounded-lg border p-4 ${
+                                result.passed
+                                  ? "border-emerald-400/50 bg-emerald-500/10 text-emerald-100"
+                                  : "border-rose-500/60 bg-rose-500/10 text-rose-100"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
+                                <span>{result.title}</span>
+                                <span>{result.passed ? "Pass" : "Fail"}</span>
+                              </div>
+                              <div className="mt-3 space-y-1 font-mono text-[11px] text-white/90">
+                                {result.input ? (
+                                  <p>
+                                    <span className="font-semibold">Input:</span> {result.input}
+                                  </p>
+                                ) : null}
+                                <p>
+                                  <span className="font-semibold">Stdout:</span> {result.stdout || "(empty)"}
+                                </p>
+                                <p>
+                                  <span className="font-semibold">Stderr:</span> {result.stderr || "(empty)"}
+                                </p>
+                                {result.expected ? (
+                                  <p>
+                                    <span className="font-semibold">Expected:</span> {result.expected}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </div>
+                          ))}
+                          {successMessage ? (
+                            <div className="rounded-lg border border-emerald-400/60 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+                              {successMessage}
+                            </div>
+                          ) : null}
+                          {feedbackHistory ? (
+                            <pre className="whitespace-pre-wrap rounded-lg border border-white/10 bg-white/5 p-4 font-mono text-xs text-slate-200">
+                              {feedbackHistory}
+                            </pre>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  </Panel>
+                </PanelGroup>
               </div>
             </div>
           </Panel>
