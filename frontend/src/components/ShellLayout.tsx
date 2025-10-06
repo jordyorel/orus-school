@@ -13,8 +13,12 @@ const ShellLayout = () => {
     navigate("/login");
   };
 
+  const containerClasses = isCourseRoute
+    ? "flex h-screen flex-col bg-transparent text-slate-900 transition-colors dark:text-slate-100"
+    : "flex min-h-screen flex-col bg-transparent text-slate-900 transition-colors dark:text-slate-100";
+
   return (
-    <div className="flex min-h-screen flex-col bg-transparent text-slate-900 transition-colors dark:text-slate-100">
+    <div className={containerClasses}>
       {!isCourseRoute ? (
         <header className="sticky top-0 z-30 border-b border-white/20 bg-white/80 backdrop-blur dark:border-slate-800/80 dark:bg-slate-900/70">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
@@ -65,7 +69,7 @@ const ShellLayout = () => {
       <main
         className={
           isCourseRoute
-            ? "flex flex-1 flex-col overflow-hidden bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
             : "mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6 lg:px-8"
         }
       >
