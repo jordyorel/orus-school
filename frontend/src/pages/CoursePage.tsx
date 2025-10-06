@@ -68,7 +68,9 @@ export type CourseLessonsResponse = {
 const EMPTY_EXERCISES: ExerciseDetail[] = [];
 
 const DEFAULT_WORKSPACE_LAYOUT: [number, number] = [35, 65];
+const DEFAULT_PLAYGROUND_LAYOUT: [number, number] = [60, 40];
 const WORKSPACE_LAYOUT_STORAGE_KEY = "course-workspace-layout";
+const PLAYGROUND_LAYOUT_STORAGE_KEY = "course-playground-layout";
 
 const sanitizeStoredLayout = (
   value: unknown,
@@ -751,6 +753,16 @@ const CoursePage = () => {
   const [workspaceLayout, setWorkspaceLayout] = useState<[number, number]>(() =>
     readStoredLayout(WORKSPACE_LAYOUT_STORAGE_KEY, DEFAULT_WORKSPACE_LAYOUT)
   );
+  const [playgroundLayout, setPlaygroundLayout] = useState<[number, number]>(() =>
+    readStoredLayout(PLAYGROUND_LAYOUT_STORAGE_KEY, DEFAULT_PLAYGROUND_LAYOUT)
+  );
+  const [isCompactLayout, setIsCompactLayout] = useState<boolean>(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return window.matchMedia("(max-width: 1023px)").matches;
+  });
 
   const activeLessonRef = useRef<number | null>(null);
   const activeExerciseRef = useRef<number | null>(null);
@@ -800,9 +812,49 @@ const CoursePage = () => {
     });
   }, []);
 
+  const handlePlaygroundLayoutChange = useCallback((sizes: number[]) => {
+    if (sizes.length !== 2) return;
+    const next: [number, number] = [sizes[0], sizes[1]];
+    setPlaygroundLayout((prev) => {
+      if (Math.abs(prev[0] - next[0]) < 0.1 && Math.abs(prev[1] - next[1]) < 0.1) {
+        return prev;
+      }
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     persistLayout(WORKSPACE_LAYOUT_STORAGE_KEY, workspaceLayout);
   }, [workspaceLayout]);
+
+  useEffect(() => {
+    persistLayout(PLAYGROUND_LAYOUT_STORAGE_KEY, playgroundLayout);
+  }, [playgroundLayout]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 1023px)");
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsCompactLayout(event.matches);
+    };
+
+    setIsCompactLayout(mediaQuery.matches);
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => {
+        mediaQuery.removeEventListener("change", handleChange);
+      };
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => {
+      mediaQuery.removeListener(handleChange);
+    };
+  }, []);
 
   const applyCourseData = useCallback((data: CourseLessonsResponse) => {
     setCourseData(data);
@@ -1049,29 +1101,6 @@ const CoursePage = () => {
     [testResults]
   );
 
-  const lessonObjectives = useMemo(() => {
-    if (!activeLesson) {
-      return [];
-    }
-    return [
-      {
-        id: "video",
-        label: "Watch the explanation video",
-        checked: videoWatched
-      },
-      {
-        id: "tests",
-        label: "Pass all configured tests",
-        checked: testsPassed
-      },
-      {
-        id: "notes",
-        label: "Review the written notes",
-        checked: Boolean(activeLesson.notes)
-      }
-    ];
-  }, [activeLesson, videoWatched, testsPassed]);
-
   const exerciseHints = useMemo(() => {
     if (!activeExercise) {
       return [];
@@ -1084,24 +1113,6 @@ const CoursePage = () => {
       "Use the provided tests tab to validate edge cases."
     ];
   }, [activeExercise, isDemoMode]);
-
-  const lessonExerciseStats = useMemo(() => {
-    if (!activeLesson) {
-      return { completed: 0, total: 0, percentage: 0 };
-    }
-    const total = activeLesson.exercises.length;
-    if (total === 0) {
-      return { completed: 0, total: 0, percentage: 0 };
-    }
-    const completed = activeLesson.exercises.filter(
-      (exercise) => (exercise.progress?.status ?? "") === "passed"
-    ).length;
-    return {
-      completed,
-      total,
-      percentage: Math.round((completed / total) * 100)
-    };
-  }, [activeLesson]);
 
   const nextExerciseCandidate = useMemo(() => {
     if (!activeLesson) {
@@ -1164,8 +1175,10 @@ const CoursePage = () => {
 
   const ResizeHandle = ({ orientation }: { orientation: "horizontal" | "vertical" }) => (
     <PanelResizeHandle
-      className={`group flex flex-none items-center justify-center ${
-        orientation === "vertical" ? "w-3" : "h-3"
+      className={`group flex flex-none items-center justify-center transition ${
+        orientation === "vertical"
+          ? "w-3 cursor-col-resize"
+          : "h-3 cursor-row-resize"
       }`}
     >
       <div
@@ -1174,6 +1187,444 @@ const CoursePage = () => {
         }`}
       />
     </PanelResizeHandle>
+  );
+
+  const CourseTabsPanelContent = () => (
+    <div
+      className={`flex min-h-0 min-w-0 flex-col overflow-hidden bg-white dark:bg-slate-900 ${
+        isCompactLayout
+          ? "h-auto border-b border-slate-200/70 dark:border-slate-800/60"
+          : "h-full border-r border-slate-200/70 dark:border-slate-800/60"
+      }`}
+    >
+      <div className="flex items-center gap-6 border-b border-slate-200/70 px-6 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400">
+        {leftTabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setLeftTab(tab.id)}
+            className={`relative pb-2 transition ${
+              leftTab === tab.id
+                ? "text-slate-900 dark:text-white"
+                : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+            }`}
+          >
+            {tab.label}
+            <span
+              className={`absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-sky-500 transition ${
+                leftTab === tab.id ? "opacity-100" : "opacity-0"
+              }`}
+            />
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-1 min-h-0 overflow-y-auto p-6">
+        <div className="flex w-full flex-col gap-6 text-sm text-slate-600 dark:text-slate-300">
+          {leftTab === "overview" ? (
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">{courseData?.course.title}</h2>
+                <p className="text-slate-600 dark:text-slate-300">{courseData?.course.description}</p>
+              </div>
+              <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white/80 p-6 text-sm text-slate-600 shadow-sm dark:border-slate-800/60 dark:bg-slate-900/80 dark:text-slate-300">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Overall progress
+                  </span>
+                  <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {Math.round(courseData?.course_progress.completion_percentage ?? 0)}%
+                  </span>
+                </div>
+                <ProgressBar
+                  percentage={courseData?.course_progress.completion_percentage ?? 0}
+                  size="lg"
+                  showLabel
+                />
+                <div className="grid gap-3 rounded-xl bg-slate-50 p-4 text-xs font-medium uppercase tracking-wide text-slate-500 dark:bg-white/5 dark:text-slate-400">
+                  <div className="flex items-center justify-between">
+                    <span>Lessons</span>
+                    <span className="text-sm text-slate-900 dark:text-slate-100">
+                      {courseData?.course_progress.lessons_completed ?? 0} / {courseData?.course_progress.lessons_total ?? 0}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Exercises</span>
+                    <span className="text-sm text-slate-900 dark:text-slate-100">
+                      {courseData?.course_progress.exercises_completed ?? 0} / {courseData?.course_progress.exercises_total ?? 0}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Curriculum
+                </h3>
+                <CourseSidebar
+                  activeLessonId={activeLessonId}
+                  activeExerciseId={activeExerciseId}
+                  curriculumSections={curriculumSections}
+                  onLessonSelect={(lesson) => handleLessonSelect(lesson.id)}
+                  onExerciseSelect={(exercise) => handleExerciseSelect(exercise.lesson_id, exercise.id)}
+                />
+              </div>
+            </div>
+          ) : null}
+          {leftTab === "lesson" ? (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-sky-500">Lesson</p>
+                  <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">
+                    {activeLesson ? activeLesson.title : "Select a lesson"}
+                  </h2>
+                  <p className="text-slate-600 dark:text-slate-300">
+                    {activeLesson ? activeLesson.description : "Pick a lesson from the sidebar to begin."}
+                  </p>
+                </div>
+                {activeLesson ? (
+                  <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm dark:border-slate-800/60 dark:bg-slate-900/90 dark:text-slate-300">
+                    <div className="prose prose-slate max-w-none dark:prose-invert">
+                      <div dangerouslySetInnerHTML={{ __html: activeLesson.notes }} />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              <div className="space-y-3">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500 dark:text-slate-400">
+                  Exercises in this lesson
+                </h3>
+                <div className="grid gap-3">
+                  {activeLesson?.exercises.map((exercise) => (
+                    <button
+                      key={exercise.id}
+                      onClick={() => handleExerciseSelect(exercise.lesson_id, exercise.id)}
+                      className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left transition ${
+                        activeExerciseId === exercise.id
+                          ? "border-sky-400/70 bg-sky-500/10 text-sky-500"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-sky-200 hover:bg-sky-50/80 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-sky-500/40 dark:hover:bg-sky-500/10"
+                      }`}
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white">{exercise.title}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{exercise.tests_count} tests</p>
+                      </div>
+                      <span className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">
+                        {exercise.progress?.status === "completed" ? "Done" : "Start"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {leftTab === "video" ? (
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-sky-500">Video</p>
+                <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">
+                  {activeLesson ? activeLesson.title : "Select a lesson"}
+                </h2>
+                <p className="text-slate-600 dark:text-slate-300">
+                  {activeLesson ? "Watch the full breakdown and walkthrough." : "Pick a lesson to view the video."}
+                </p>
+              </div>
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-black shadow-sm dark:border-slate-800">
+                {activeLesson ? (
+                  <VideoPlayer
+                    url={activeLesson.video_url}
+                    onWatched={() => setVideoWatched(true)}
+                    watched={videoWatched}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center bg-slate-900/60 p-12 text-sm text-slate-300">
+                    Select a lesson to watch the explanation.
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white/80 p-4 text-xs font-semibold uppercase tracking-[0.35em] text-slate-500 shadow-sm dark:border-slate-800/60 dark:bg-slate-900/60 dark:text-slate-400">
+                <span>Progress</span>
+                <span className="text-sm text-slate-900 dark:text-white">{videoWatched ? "Watched" : "Not started"}</span>
+              </div>
+            </div>
+          ) : null}
+          {leftTab === "exercise" ? (
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-sky-500">Exercise prompt</p>
+                <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">
+                  {activeExercise ? activeExercise.title : "Select an exercise"}
+                </h2>
+                <p className="text-slate-600 dark:text-slate-300">
+                  {activeExercise ? activeExercise.instructions : "Pick an exercise to view the prompt."}
+                </p>
+              </div>
+              <div className="space-y-4">
+                {activeExercise ? (
+                  <div className="space-y-4 rounded-2xl border border-slate-200 bg-white/80 p-6 text-sm text-slate-600 shadow-sm dark:border-slate-800/60 dark:bg-slate-900/80 dark:text-slate-300">
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500 dark:text-slate-400">
+                        Starter files
+                      </h3>
+                      <div className="grid gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                        {Object.keys(activeExercise.starter_code ?? {}).map((language) => (
+                          <span key={language} className="rounded-md bg-slate-100 px-3 py-1 dark:bg-slate-800">
+                            {language.toUpperCase()}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500 dark:text-slate-400">
+                        Helpful hints
+                      </h3>
+                      <div className="space-y-2">
+                        {(exerciseHints[activeExercise.id] ?? []).map((hint, index) => {
+                          const hintId = `${activeExercise.id}-${index}`;
+                          const isOpen = hintStates[hintId] ?? false;
+                          return (
+                            <div key={hintId} className="rounded-xl border border-slate-200 bg-white/60 p-4 shadow-sm dark:border-slate-800/60 dark:bg-slate-900/60">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setHintStates((prev) => ({
+                                    ...prev,
+                                    [hintId]: !isOpen,
+                                  }))
+                                }
+                                className="flex w-full items-center justify-between text-left text-xs font-semibold uppercase tracking-[0.35em] text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                              >
+                                <span>Hint {index + 1}</span>
+                                <span aria-hidden="true">{isOpen ? "−" : "+"}</span>
+                              </button>
+                              {isOpen ? (
+                                <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{hint}</p>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p>Select an exercise from the workspace to load the prompt.</p>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <div className="border-t border-slate-200/70 bg-slate-50/70 px-6 py-4 text-xs font-semibold uppercase tracking-[0.35em] text-slate-500 dark:border-slate-800/60 dark:bg-slate-900/70 dark:text-slate-400">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="rounded-full bg-sky-100 px-2 py-1 text-sky-600 dark:bg-sky-500/20 dark:text-sky-300">
+              {testsPassed ? "All tests passed" : `${testResults.filter((result) => result.passed).length}/${
+                testResults.length
+              } tests passed`}
+            </span>
+            <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-200">
+              {readyForNextLesson ? "Ready for next lesson" : "Keep going"}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleMarkLessonComplete}
+              disabled={!activeLesson || lessonMarkLoading}
+              className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white/10 dark:hover:bg-white/20"
+            >
+              {lessonMarkLoading ? "Saving..." : "Mark lesson complete"}
+            </button>
+            <button
+              onClick={handleGoToNextExercise}
+              disabled={nextButtonDisabled}
+              className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span>{nextExerciseLabel}</span>
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const PlaygroundPanelContent = () => (
+    <div
+      className={`flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#081024] text-slate-100 ${
+        isCompactLayout ? "h-auto border-t border-slate-200/70 dark:border-slate-800/60" : "h-full"
+      }`}
+    >
+      <div className="border-b border-white/10 bg-[#0d1b33] px-6 py-5">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-sky-400">
+              Your Solutions
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {solutionTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setSolutionTab(tab.id)}
+                  className={`rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
+                    solutionTab === tab.id
+                      ? "bg-sky-500 text-white shadow"
+                      : "bg-white/5 text-slate-300 hover:bg-white/10"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-sm text-slate-400">
+              {activeExercise ? activeExercise.title : "Select an exercise to begin."}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <IconButton onClick={() => setIsEditorFullscreen(true)} label="Open fullscreen">
+              <FullscreenIcon className="h-5 w-5" />
+            </IconButton>
+            <IconButton
+              onClick={handleRunTests}
+              label={testLoading ? "Running tests..." : "Run tests"}
+              disabled={testLoading}
+            >
+              <RefreshIcon className={`h-5 w-5 ${testLoading ? "animate-spin" : ""}`} />
+            </IconButton>
+            <button
+              onClick={handleRunCode}
+              disabled={runLoading}
+              className="inline-flex items-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {runLoading ? "Running..." : "Run Code"}
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-1 min-h-0 flex-col px-6 py-6">
+        <PanelGroup
+          direction="vertical"
+          layout={playgroundLayout}
+          onLayout={handlePlaygroundLayoutChange}
+          className="flex h-full flex-1 flex-col gap-4"
+        >
+          <Panel
+            defaultSize={playgroundLayout[0] ?? DEFAULT_PLAYGROUND_LAYOUT[0]}
+            minSize={15}
+            maxSize={100}
+            collapsible
+            collapsedSize={0}
+            className="min-h-[200px] overflow-hidden rounded-2xl border border-white/10 bg-[#050d1c] shadow-[0_0_0_1px_rgba(15,23,42,0.4)]"
+          >
+            <div className="flex h-full min-h-0">
+              {!isEditorFullscreen ? (
+                <CodeEditor
+                  language={selectedLanguage}
+                  code={editorCode}
+                  onChange={handleEditorChange}
+                  theme={isDarkMode ? "dark" : "light"}
+                  height="100%"
+                  className="h-full"
+                  textareaClassName="h-full w-full resize-none border-0 bg-transparent p-6 font-mono text-sm text-slate-100 outline-none focus:ring-2 focus:ring-sky-500/40"
+                  unstyled
+                />
+              ) : (
+                <div className="flex h-full flex-1 items-center justify-center text-sm text-slate-400">
+                  Editor is open in fullscreen mode.
+                </div>
+              )}
+            </div>
+          </Panel>
+          <ResizeHandle orientation="horizontal" />
+          <Panel
+            defaultSize={playgroundLayout[1] ?? DEFAULT_PLAYGROUND_LAYOUT[1]}
+            minSize={15}
+            maxSize={100}
+            collapsible
+            collapsedSize={0}
+            className="flex min-h-[160px] flex-col rounded-2xl border border-white/10 bg-[#0f1b33] p-5"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                {outputTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setOutputTab(tab.id)}
+                    className={`rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
+                      outputTab === tab.id
+                        ? "bg-white/15 text-white shadow"
+                        : "bg-white/5 text-slate-300 hover:bg-white/10"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={handleSubmitCode}
+                disabled={!activeExercise}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Submit Code
+              </button>
+            </div>
+            <div className="mt-4 flex-1 overflow-hidden rounded-lg border border-white/10 bg-[#050d1c] p-4">
+              {outputTab === "custom" ? (
+                <pre className="h-full w-full overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-200">
+                  {consoleOutput || "Run or submit code when you're ready."}
+                </pre>
+              ) : (
+                <div className="flex h-full flex-col gap-3 overflow-y-auto text-sm text-slate-200">
+                  {testResults.length === 0 && !successMessage && !feedbackHistory ? (
+                    <p className="text-slate-400">Run tests or submit code to see results here.</p>
+                  ) : null}
+                  {testResults.map((result) => (
+                    <div
+                      key={result.id}
+                      className={`rounded-lg border p-4 ${
+                        result.passed
+                          ? "border-emerald-400/50 bg-emerald-500/10 text-emerald-100"
+                          : "border-rose-500/60 bg-rose-500/10 text-rose-100"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
+                        <span>{result.title}</span>
+                        <span>{result.passed ? "Pass" : "Fail"}</span>
+                      </div>
+                      <div className="mt-3 space-y-1 font-mono text-[11px] text-white/90">
+                        {result.input ? (
+                          <p>
+                            <span className="font-semibold">Input:</span> {result.input}
+                          </p>
+                        ) : null}
+                        <p>
+                          <span className="font-semibold">Stdout:</span> {result.stdout || "(empty)"}
+                        </p>
+                        <p>
+                          <span className="font-semibold">Stderr:</span> {result.stderr || "(empty)"}
+                        </p>
+                        {result.expected ? (
+                          <p>
+                            <span className="font-semibold">Expected:</span> {result.expected}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                  {successMessage ? (
+                    <div className="rounded-lg border border-emerald-400/60 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+                      {successMessage}
+                    </div>
+                  ) : null}
+                  {feedbackHistory ? (
+                    <pre className="whitespace-pre-wrap rounded-lg border border-white/10 bg-white/5 p-4 font-mono text-xs text-slate-200">
+                      {feedbackHistory}
+                    </pre>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          </Panel>
+        </PanelGroup>
+      </div>
+    </div>
   );
 
   useEffect(() => {
@@ -1328,17 +1779,6 @@ const CoursePage = () => {
     }
     setSuccessMessage("Submission received 🎉 Your mentor will review it shortly.");
     setOutputTab("raw");
-  };
-
-  const toggleHint = (index: number) => {
-    setHintStates((prev) => ({
-      ...prev,
-      [index]: !prev[index]
-    }));
-  };
-
-  const handleMarkVideoWatched = () => {
-    setVideoWatched(true);
   };
 
   const handleEditorChange = (value: string) => {
@@ -1556,28 +1996,6 @@ const CoursePage = () => {
     );
   }
 
-  const lessonCompleted = Boolean(activeLesson?.progress?.completed);
-  const progressSummary = courseData.course_progress;
-  const courseIsLocked =
-    lessonStatusEntries.length > 0 && lessonStatusEntries.every((entry) => entry.status === "locked");
-  const courseStatusInfo = courseIsLocked
-    ? {
-        icon: "🔒",
-        label: "Locked",
-        badge: "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
-      }
-    : progressSummary.status === "completed"
-    ? {
-        icon: "✅",
-        label: "Completed",
-        badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
-      }
-    : {
-        icon: "⏳",
-        label: "In progress",
-        badge: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
-      };
-
   const displayName = user?.name ?? "Guest Student";
   const initials =
     displayName
@@ -1590,9 +2008,6 @@ const CoursePage = () => {
   const profileSubline = isDemoMode ? "Demo student" : "Student workspace";
   const nextButtonDisabled = !nextExerciseCandidate || !readyForNextLesson;
   const navLanguageDisabled = availableLanguages.length === 0;
-  const nextLessonHelper = nextButtonDisabled
-    ? "Watch the video and pass all tests to unlock the next lesson."
-    : "All requirements met. Continue when you're ready.";
   const feedbackHistory = activeExercise?.progress?.last_run_output ?? "";
 
   return (
@@ -1678,380 +2093,45 @@ const CoursePage = () => {
         </div>
       ) : null}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        <PanelGroup
-          direction="horizontal"
-          layout={workspaceLayout}
-          onLayout={handleWorkspaceLayoutChange}
-          className="flex h-full w-full min-h-0 min-w-0 gap-0"
-        >
-          <Panel defaultSize={35} minSize={24} maxSize={46} className="min-h-0 min-w-0 overflow-hidden">
-            <div className="flex h-full min-h-0 min-w-0 flex-col border-r border-slate-200/70 bg-white dark:border-slate-800/60 dark:bg-slate-900">
-              <div className="flex items-center gap-6 border-b border-slate-200/70 px-6 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                {leftTabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setLeftTab(tab.id)}
-                    className={`relative pb-2 transition ${
-                      leftTab === tab.id
-                        ? "text-slate-900 dark:text-white"
-                        : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                    }`}
-                  >
-                    {tab.label}
-                    <span
-                      className={`absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-sky-500 transition ${
-                        leftTab === tab.id ? "opacity-100" : "opacity-0"
-                      }`}
-                    />
-                  </button>
-                ))}
-              </div>
-              <div className="flex-1 overflow-y-auto px-6 py-6 text-sm text-slate-600 dark:text-slate-300">
-                {leftTab === "overview" ? (
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        <span>Year {courseData.course.year}</span>
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${courseStatusInfo.badge}`}
-                        >
-                          <span aria-hidden="true">{courseStatusInfo.icon}</span>
-                          <span>{courseStatusInfo.label}</span>
-                        </span>
-                      </div>
-                      <h1 className="text-xl font-semibold text-slate-900 dark:text-white">{courseData.course.title}</h1>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">{courseData.course.description}</p>
-                    </div>
-                    <div className="space-y-4">
-                      <ProgressBar value={progressSummary.completion_percentage} label="Course completion" size="sm" />
-                      <div className="grid gap-3 sm:grid-cols-3">
-                        <div className="rounded-xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/60">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Lessons completed</p>
-                          <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
-                            {progressSummary.lessons_completed} / {progressSummary.lessons_total}
-                          </p>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/60">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Exercises passed</p>
-                          <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
-                            {progressSummary.exercises_completed} / {progressSummary.exercises_total}
-                          </p>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/60">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</p>
-                          <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{courseStatusInfo.label}</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Course overview</h2>
-                      <div className="rounded-xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/60">
-                        <CourseSidebar
-                          sections={curriculumSections}
-                          activeLessonId={activeLesson?.id ?? null}
-                          onSelect={handleLessonSelect}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-                {leftTab === "lesson" ? (
-                  activeLesson ? (
-                    <div className="space-y-6">
-                      <div className="space-y-2">
-                        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{activeLesson.title}</h2>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">{activeLesson.description}</p>
-                      </div>
-                      <div className="space-y-3 rounded-xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/60">
-                        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Learning objectives</h3>
-                        <ul className="space-y-2">
-                          {lessonObjectives.map((objective) => (
-                            <li key={objective.id} className="flex items-center gap-2 text-sm">
-                              <span
-                                className={`flex h-5 w-5 items-center justify-center rounded border text-xs ${
-                                  objective.checked
-                                    ? "border-emerald-400 bg-emerald-100 text-emerald-700 dark:border-emerald-400/60 dark:bg-emerald-500/10 dark:text-emerald-200"
-                                    : "border-slate-300 bg-white text-transparent dark:border-slate-700 dark:bg-slate-800"
-                                }`}
-                              >
-                                ✓
-                              </span>
-                              <span>{objective.label}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        <span>
-                          {lessonExerciseStats.total > 0
-                            ? `${lessonExerciseStats.completed} of ${lessonExerciseStats.total} exercises completed`
-                            : "No exercises configured"}
-                        </span>
-                        <button
-                          onClick={handleMarkLessonComplete}
-                          disabled={lessonMarkLoading || lessonCompleted}
-                          className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {lessonCompleted ? "Lesson read" : lessonMarkLoading ? "Marking..." : "Mark Lesson Read"}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p>Select a lesson from the overview tab to get started.</p>
-                  )
-                ) : null}
-                {leftTab === "video" ? (
-                  activeLesson ? (
-                    <div className="space-y-5">
-                      <VideoPlayer url={activeLesson.video_url} title={activeLesson.title} />
-                      <div className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        <span>{videoWatched ? "Video marked as watched" : "Watch the video to unlock the next lesson."}</span>
-                        <button
-                          onClick={handleMarkVideoWatched}
-                          disabled={videoWatched}
-                          className="rounded-full bg-sky-600 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {videoWatched ? "Watched" : "Mark as watched"}
-                        </button>
-                      </div>
-                      {activeLesson.notes ? (
-                        <div className="rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-                          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Transcript & notes</h3>
-                          <div
-                            className="prose prose-slate mt-3 max-w-none text-sm dark:prose-invert"
-                            dangerouslySetInnerHTML={{ __html: activeLesson.notes }}
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <p>Select a lesson to watch the explanation.</p>
-                  )
-                ) : null}
-                {leftTab === "exercise" ? (
-                  activeExercise ? (
-                    <div className="space-y-6">
-                      <div className="rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-                        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Problem description</h3>
-                        <div
-                          className="prose prose-slate mt-3 max-w-none text-sm leading-relaxed dark:prose-invert"
-                          dangerouslySetInnerHTML={{ __html: activeExercise.instructions }}
-                        />
-                      </div>
-                      <div className="space-y-3">
-                        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Hints</h3>
-                        {exerciseHints.length === 0 ? (
-                          <p>No hints configured for this exercise.</p>
-                        ) : (
-                          exerciseHints.map((hint, index) => (
-                            <div key={index} className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/60">
-                              <button
-                                type="button"
-                                onClick={() => toggleHint(index)}
-                                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-slate-600 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                              >
-                                <span>Hint {index + 1}</span>
-                                <span className="text-xs">{hintStates[index] ? "▾" : "▸"}</span>
-                              </button>
-                              {hintStates[index] ? (
-                                <p className="px-4 pb-4 text-sm text-slate-600 dark:text-slate-300">{hint}</p>
-                              ) : null}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                      {activeLesson?.notes ? (
-                        <div className="rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-                          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Lesson notes</h3>
-                          <div
-                            className="prose prose-slate mt-3 max-w-none text-sm dark:prose-invert"
-                            dangerouslySetInnerHTML={{ __html: activeLesson.notes }}
-                          />
-                        </div>
-                      ) : null}
-                      <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        <span>
-                          {exercisePosition ? `Exercise ${exercisePosition.number} of ${exercisePosition.total}` : ""}
-                        </span>
-                        <div className="flex items-center gap-3">
-                          <span className="hidden text-xs font-medium text-slate-500 dark:text-slate-400 sm:inline">{nextLessonHelper}</span>
-                          <button
-                            onClick={handleGoToNextExercise}
-                            disabled={nextButtonDisabled}
-                            className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            <span>{nextExerciseLabel}</span>
-                            <span aria-hidden="true">→</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <p>Select an exercise from the workspace to load the prompt.</p>
-                  )
-                ) : null}
-              </div>
+        {isCompactLayout ? (
+          <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+            <div className="flex-none min-h-0 overflow-hidden">
+              <CourseTabsPanelContent />
             </div>
-          </Panel>
-          <ResizeHandle orientation="vertical" />
-          <Panel defaultSize={65} minSize={45} className="min-h-0 min-w-0 overflow-hidden">
-            <div className="flex h-full min-h-0 min-w-0 flex-col bg-[#081024] text-slate-100">
-              <div className="border-b border-white/10 bg-[#0d1b33] px-6 py-5">
-                <div className="flex flex-wrap items-start justify-between gap-6">
-                  <div className="space-y-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.35em] text-sky-400">
-                      Your Solutions
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {solutionTabs.map((tab) => (
-                        <button
-                          key={tab.id}
-                          onClick={() => setSolutionTab(tab.id)}
-                          className={`rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
-                            solutionTab === tab.id
-                              ? "bg-sky-500 text-white shadow"
-                              : "bg-white/5 text-slate-300 hover:bg-white/10"
-                          }`}
-                        >
-                          {tab.label}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="text-sm text-slate-400">
-                      {activeExercise ? activeExercise.title : "Select an exercise to begin."}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <IconButton onClick={() => setIsEditorFullscreen(true)} label="Open fullscreen">
-                      <FullscreenIcon className="h-5 w-5" />
-                    </IconButton>
-                    <IconButton
-                      onClick={handleRunTests}
-                      label={testLoading ? "Running tests..." : "Run tests"}
-                      disabled={testLoading}
-                    >
-                      <RefreshIcon className={`h-5 w-5 ${testLoading ? "animate-spin" : ""}`} />
-                    </IconButton>
-                    <button
-                      onClick={handleRunCode}
-                      disabled={runLoading}
-                      className="inline-flex items-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {runLoading ? "Running..." : "Run Code"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-1 min-h-0 flex-col px-6 py-6">
-                <PanelGroup direction="vertical" className="flex h-full flex-1 flex-col gap-4">
-                  <Panel defaultSize={65} minSize={40} className="min-h-[240px] overflow-hidden rounded-2xl border border-white/10 bg-[#050d1c] shadow-[0_0_0_1px_rgba(15,23,42,0.4)]">
-                    <div className="flex h-full min-h-0">
-                      {!isEditorFullscreen ? (
-                        <CodeEditor
-                          language={selectedLanguage}
-                          code={editorCode}
-                          onChange={handleEditorChange}
-                          theme={isDarkMode ? "dark" : "light"}
-                          height="100%"
-                          className="h-full"
-                          textareaClassName="h-full w-full resize-none border-0 bg-transparent p-6 font-mono text-sm text-slate-100 outline-none focus:ring-2 focus:ring-sky-500/40"
-                          unstyled
-                        />
-                      ) : (
-                        <div className="flex h-full flex-1 items-center justify-center text-sm text-slate-400">
-                          Editor is open in fullscreen mode.
-                        </div>
-                      )}
-                    </div>
-                  </Panel>
-                  <ResizeHandle orientation="horizontal" />
-                  <Panel defaultSize={35} minSize={20} className="flex min-h-[200px] flex-col rounded-2xl border border-white/10 bg-[#0f1b33] p-5">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        {outputTabs.map((tab) => (
-                          <button
-                            key={tab.id}
-                            onClick={() => setOutputTab(tab.id)}
-                            className={`rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
-                              outputTab === tab.id
-                                ? "bg-white/15 text-white shadow"
-                                : "bg-white/5 text-slate-300 hover:bg-white/10"
-                            }`}
-                          >
-                            {tab.label}
-                          </button>
-                        ))}
-                      </div>
-                      <button
-                        onClick={handleSubmitCode}
-                        disabled={!activeExercise}
-                        className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Submit Code
-                      </button>
-                    </div>
-                    <div className="mt-4 flex-1 overflow-hidden rounded-lg border border-white/10 bg-[#050d1c] p-4">
-                      {outputTab === "custom" ? (
-                        <pre className="h-full w-full overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-200">
-                          {consoleOutput || "Run or submit code when you're ready."}
-                        </pre>
-                      ) : (
-                        <div className="flex h-full flex-col gap-3 overflow-y-auto text-sm text-slate-200">
-                          {testResults.length === 0 && !successMessage && !feedbackHistory ? (
-                            <p className="text-slate-400">Run tests or submit code to see results here.</p>
-                          ) : null}
-                          {testResults.map((result) => (
-                            <div
-                              key={result.id}
-                              className={`rounded-lg border p-4 ${
-                                result.passed
-                                  ? "border-emerald-400/50 bg-emerald-500/10 text-emerald-100"
-                                  : "border-rose-500/60 bg-rose-500/10 text-rose-100"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
-                                <span>{result.title}</span>
-                                <span>{result.passed ? "Pass" : "Fail"}</span>
-                              </div>
-                              <div className="mt-3 space-y-1 font-mono text-[11px] text-white/90">
-                                {result.input ? (
-                                  <p>
-                                    <span className="font-semibold">Input:</span> {result.input}
-                                  </p>
-                                ) : null}
-                                <p>
-                                  <span className="font-semibold">Stdout:</span> {result.stdout || "(empty)"}
-                                </p>
-                                <p>
-                                  <span className="font-semibold">Stderr:</span> {result.stderr || "(empty)"}
-                                </p>
-                                {result.expected ? (
-                                  <p>
-                                    <span className="font-semibold">Expected:</span> {result.expected}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </div>
-                          ))}
-                          {successMessage ? (
-                            <div className="rounded-lg border border-emerald-400/60 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-                              {successMessage}
-                            </div>
-                          ) : null}
-                          {feedbackHistory ? (
-                            <pre className="whitespace-pre-wrap rounded-lg border border-white/10 bg-white/5 p-4 font-mono text-xs text-slate-200">
-                              {feedbackHistory}
-                            </pre>
-                          ) : null}
-                        </div>
-                      )}
-                    </div>
-                  </Panel>
-                </PanelGroup>
-              </div>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <PlaygroundPanelContent />
             </div>
-          </Panel>
-        </PanelGroup>
+          </div>
+        ) : (
+          <PanelGroup
+            direction="horizontal"
+            layout={workspaceLayout}
+            onLayout={handleWorkspaceLayoutChange}
+            className="flex h-full w-full min-h-0 min-w-0 gap-0"
+          >
+            <Panel
+              defaultSize={workspaceLayout[0] ?? DEFAULT_WORKSPACE_LAYOUT[0]}
+              minSize={20}
+              maxSize={100}
+              collapsible
+              collapsedSize={5}
+              className="min-h-0 min-w-0 overflow-hidden"
+            >
+              <CourseTabsPanelContent />
+            </Panel>
+            <ResizeHandle orientation="vertical" />
+            <Panel
+              defaultSize={workspaceLayout[1] ?? DEFAULT_WORKSPACE_LAYOUT[1]}
+              minSize={20}
+              maxSize={100}
+              collapsible
+              collapsedSize={5}
+              className="min-h-0 min-w-0 overflow-hidden"
+            >
+              <PlaygroundPanelContent />
+            </Panel>
+          </PanelGroup>
+        )}
       </div>
       {isEditorFullscreen ? (
         <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/90 p-6">
