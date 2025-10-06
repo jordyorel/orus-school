@@ -1583,7 +1583,7 @@ const CoursePage = () => {
                   onChange={handleEditorChange}
                   theme={isDarkMode ? "dark" : "light"}
                   height="100%"
-                  className="h-full"
+                  className="h-full w-full"
                   textareaClassName="h-full w-full resize-none border-0 bg-transparent p-6 font-mono text-sm text-slate-100 outline-none focus:ring-2 focus:ring-sky-500/40"
                   unstyled
                 />
