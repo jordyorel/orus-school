@@ -133,6 +133,12 @@ const LandingPage = () => {
                 >
                   Learn More
                 </a>
+                <Link
+                  to="/playground"
+                  className="inline-flex items-center justify-center rounded-full bg-white/10 px-8 py-3 text-sm font-semibold text-white shadow-inner transition hover:bg-white/20"
+                >
+                  Try the Playground
+                </Link>
               </div>
               <div className="grid gap-6 pt-8 sm:grid-cols-3">
                 <div>
