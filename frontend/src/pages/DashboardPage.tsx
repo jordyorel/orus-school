@@ -136,6 +136,36 @@ const DashboardPage = () => {
     return "🔥 Every line of code gets you closer to unlocking the next track.";
   }, [progress]);
 
+  const firstAvailableCourseId = useMemo(() => {
+    if (!progress) return null;
+    const sortedCourses = [...progress.courses].sort((a, b) => {
+      if (a.course.year !== b.course.year) {
+        return a.course.year - b.course.year;
+      }
+      return a.course.order_index - b.course.order_index;
+    });
+    const availableCourse = sortedCourses.find((entry) => entry.status !== "locked");
+    return availableCourse?.course.id ?? null;
+  }, [progress]);
+
+  const handleOpenCoursePage = () => {
+    if (firstAvailableCourseId) {
+      navigate(`/app/courses/${firstAvailableCourseId}`);
+      return;
+    }
+    navigate("/app/courses/demo");
+  };
+
+  const courseButtonLabel = useMemo(() => {
+    if (firstAvailableCourseId) {
+      return "Continue learning";
+    }
+    if ((progress?.courses.length ?? 0) > 0) {
+      return "View course overview";
+    }
+    return "Explore course demo";
+  }, [firstAvailableCourseId, progress]);
+
   if (!user) {
     return null;
   }
@@ -152,20 +182,30 @@ const DashboardPage = () => {
           </div>
           <h1 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">Your learning journey</h1>
         </div>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setIsDarkMode((value) => !value)}
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-          >
-            {isDarkMode ? "☀️ Light mode" : "🌙 Dark mode"}
-          </button>
-          <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-sky-500 text-lg font-semibold text-white">
-              {user.name.slice(0, 1).toUpperCase()}
-            </span>
-            <div className="text-sm">
-              <p className="font-semibold text-slate-900 dark:text-white">{user.name}</p>
-              <p className="text-slate-500 dark:text-slate-400">Student</p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          {!loading ? (
+            <button
+              onClick={handleOpenCoursePage}
+              className="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
+            >
+              {courseButtonLabel}
+            </button>
+          ) : null}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsDarkMode((value) => !value)}
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+            >
+              {isDarkMode ? "☀️ Light mode" : "🌙 Dark mode"}
+            </button>
+            <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-sky-500 text-lg font-semibold text-white">
+                {user.name.slice(0, 1).toUpperCase()}
+              </span>
+              <div className="text-sm">
+                <p className="font-semibold text-slate-900 dark:text-white">{user.name}</p>
+                <p className="text-slate-500 dark:text-slate-400">Student</p>
+              </div>
             </div>
           </div>
         </div>
