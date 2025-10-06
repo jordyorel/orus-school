@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "../api";
 import CodeEditor from "../components/CodeEditor";
@@ -68,9 +68,7 @@ export type CourseLessonsResponse = {
 const EMPTY_EXERCISES: ExerciseDetail[] = [];
 
 const DEFAULT_WORKSPACE_LAYOUT: [number, number] = [35, 65];
-const DEFAULT_EDITOR_LAYOUT: [number, number] = [62, 38];
 const WORKSPACE_LAYOUT_STORAGE_KEY = "course-workspace-layout";
-const EDITOR_LAYOUT_STORAGE_KEY = "course-editor-layout";
 
 const sanitizeStoredLayout = (
   value: unknown,
@@ -134,6 +132,59 @@ const persistLayout = (key: string, layout: [number, number]) => {
     console.warn(`Unable to persist layout for ${key}`, error);
   }
 };
+
+const FullscreenIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M4 4h6v2H6v4H4zM20 4v6h-2V6h-4V4zM20 20h-6v-2h4v-4h2zM4 20v-6h2v4h4v2z" />
+  </svg>
+);
+
+const RefreshIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+    <path d="M21 3v6h-6" />
+  </svg>
+);
+
+const IconButton = ({
+  onClick,
+  label,
+  children,
+  disabled,
+}: {
+  onClick: () => void;
+  label: string;
+  children: ReactNode;
+  disabled?: boolean;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    aria-label={label}
+    title={label}
+    className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-100 transition hover:-translate-y-0.5 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+  >
+    {children}
+    <span className="sr-only">{label}</span>
+  </button>
+);
 
 const demoCourse: Course = {
   id: 0,
@@ -681,7 +732,7 @@ const CoursePage = () => {
   const [selectedLanguage, setSelectedLanguage] = useState<string>("python");
   const [solutionTab, setSolutionTab] = useState<"solution1" | "solution2" | "solution3">("solution1");
   const [consoleOutput, setConsoleOutput] = useState<string>("");
-  const [outputTab, setOutputTab] = useState<"console" | "tests" | "feedback">("console");
+  const [outputTab, setOutputTab] = useState<"custom" | "raw">("custom");
   const [testResults, setTestResults] = useState<ConsoleResult[]>([]);
   const [runLoading, setRunLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
@@ -699,9 +750,6 @@ const CoursePage = () => {
   const [isEditorFullscreen, setIsEditorFullscreen] = useState(false);
   const [workspaceLayout, setWorkspaceLayout] = useState<[number, number]>(() =>
     readStoredLayout(WORKSPACE_LAYOUT_STORAGE_KEY, DEFAULT_WORKSPACE_LAYOUT)
-  );
-  const [editorLayout, setEditorLayout] = useState<[number, number]>(() =>
-    readStoredLayout(EDITOR_LAYOUT_STORAGE_KEY, DEFAULT_EDITOR_LAYOUT)
   );
 
   const activeLessonRef = useRef<number | null>(null);
@@ -752,24 +800,9 @@ const CoursePage = () => {
     });
   }, []);
 
-  const handleEditorLayoutChange = useCallback((sizes: number[]) => {
-    if (sizes.length !== 2) return;
-    const next: [number, number] = [sizes[0], sizes[1]];
-    setEditorLayout((prev) => {
-      if (Math.abs(prev[0] - next[0]) < 0.1 && Math.abs(prev[1] - next[1]) < 0.1) {
-        return prev;
-      }
-      return next;
-    });
-  }, []);
-
   useEffect(() => {
     persistLayout(WORKSPACE_LAYOUT_STORAGE_KEY, workspaceLayout);
   }, [workspaceLayout]);
-
-  useEffect(() => {
-    persistLayout(EDITOR_LAYOUT_STORAGE_KEY, editorLayout);
-  }, [editorLayout]);
 
   const applyCourseData = useCallback((data: CourseLessonsResponse) => {
     setCourseData(data);
@@ -1125,17 +1158,9 @@ const CoursePage = () => {
   ];
 
   const outputTabs = [
-    { id: "console" as const, label: "Console" },
-    { id: "tests" as const, label: "Tests" },
-    { id: "feedback" as const, label: "Feedback" }
+    { id: "custom" as const, label: "Custom Output" },
+    { id: "raw" as const, label: "Raw Output" }
   ];
-
-  const autosaveCopy =
-    autosaveStatus === "saving"
-      ? "Saving draft..."
-      : autosaveStatus === "saved"
-      ? "Draft saved"
-      : "Autosave ready";
 
   const ResizeHandle = ({ orientation }: { orientation: "horizontal" | "vertical" }) => (
     <PanelResizeHandle
@@ -1221,7 +1246,7 @@ const CoursePage = () => {
       setIsEditorFullscreen(false);
       setVideoWatched(false);
       setSolutionTab("solution1");
-      setOutputTab("console");
+      setOutputTab("custom");
       setAutosaveStatus("idle");
       setHintStates({});
       const lesson = lessons.find((item) => item.id === lessonId);
@@ -1255,7 +1280,7 @@ const CoursePage = () => {
     setTestResults([]);
     setActiveExerciseId(exerciseId);
     setSolutionTab("solution1");
-    setOutputTab("console");
+    setOutputTab("custom");
     setAutosaveStatus("idle");
     setHintStates({});
     setIsEditorFullscreen(false);
@@ -1288,7 +1313,7 @@ const CoursePage = () => {
 
   useEffect(() => {
     setSolutionTab("solution1");
-    setOutputTab("console");
+    setOutputTab("custom");
     setAutosaveStatus("idle");
     setHintStates({});
     setIsEditorFullscreen(false);
@@ -1298,11 +1323,11 @@ const CoursePage = () => {
     if (!activeExercise) return;
     if (!testsPassed) {
       setSuccessMessage("Run and pass the tests before submitting.");
-      setOutputTab("feedback");
+      setOutputTab("raw");
       return;
     }
     setSuccessMessage("Submission received 🎉 Your mentor will review it shortly.");
-    setOutputTab("feedback");
+    setOutputTab("raw");
   };
 
   const toggleHint = (index: number) => {
@@ -1351,7 +1376,7 @@ const CoursePage = () => {
   const handleRunCode = async () => {
     if (!activeExercise) return;
     setRunLoading(true);
-    setOutputTab("console");
+    setOutputTab("custom");
     setSuccessMessage(null);
     if (isDemoMode) {
       await new Promise((resolve) => setTimeout(resolve, 300));
@@ -1383,7 +1408,7 @@ const CoursePage = () => {
   const handleRunTests = async () => {
     if (!activeExercise) return;
     setTestLoading(true);
-    setOutputTab("tests");
+    setOutputTab("raw");
     setSuccessMessage(null);
     setTestResults([]);
     if (isDemoMode) {
@@ -1407,7 +1432,7 @@ const CoursePage = () => {
         input: test.input
       }));
       setTestResults(simulatedResults);
-      setOutputTab("tests");
+      setOutputTab("raw");
       setSuccessMessage(simulation?.message ?? "Great job 🚀 You’re one step closer to mastering this lesson!");
       setCourseData((prev) => {
         if (!prev || !activeLesson) {
@@ -1471,7 +1496,7 @@ const CoursePage = () => {
         input: result.input_data ?? undefined
       }));
       setTestResults(mapped);
-      setOutputTab("tests");
+      setOutputTab("raw");
       if (data.passed_all) {
         setSuccessMessage("All tests passed! Ready for submission.");
       } else {
@@ -1870,213 +1895,156 @@ const CoursePage = () => {
           </Panel>
           <ResizeHandle orientation="vertical" />
           <Panel defaultSize={65} minSize={45} className="min-h-0 min-w-0 overflow-hidden">
-            <PanelGroup
-              direction="vertical"
-              layout={editorLayout}
-              onLayout={handleEditorLayoutChange}
-              className="flex h-full w-full min-h-0 min-w-0 gap-0"
-            >
-              <Panel defaultSize={62} minSize={40} className="min-h-0 min-w-0 overflow-hidden">
-                <div className="flex h-full min-h-0 min-w-0 flex-col bg-white dark:bg-slate-900">
-                  <div className="flex flex-col gap-4 border-b border-slate-200 px-6 py-4 dark:border-slate-800">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-                          {activeExercise ? activeExercise.title : "Code workspace"}
-                        </h2>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                          {activeLesson ? activeLesson.title : "Select a lesson to begin."}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        <span>{autosaveCopy}</span>
-                        <button
-                          onClick={() => setIsEditorFullscreen(true)}
-                          className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:-translate-y-0.5 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                        >
-                          Fullscreen
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="exercise-select">
-                        Exercise
-                      </label>
-                      <select
-                        id="exercise-select"
-                        value={activeExercise?.id ?? ""}
-                        onChange={(event) => handleExerciseChange(Number(event.target.value))}
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                      >
-                        {exercises.map((exercise) => (
-                          <option key={exercise.id} value={exercise.id}>
-                            {exercise.title}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="hidden items-center gap-2 sm:flex">
-                        {solutionTabs.map((tab) => (
-                          <button
-                            key={tab.id}
-                            onClick={() => setSolutionTab(tab.id)}
-                            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                              solutionTab === tab.id
-                                ? "bg-sky-600 text-white"
-                                : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                            }`}
-                          >
-                            {tab.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 sm:hidden">
+            <div className="flex h-full min-h-0 min-w-0 flex-col bg-[#0b1220] text-slate-100">
+              <div className="flex flex-wrap items-center justify-between gap-6 border-b border-white/10 px-6 py-5">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.35em] text-sky-400">
+                      Your Solutions
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
                       {solutionTabs.map((tab) => (
                         <button
                           key={tab.id}
                           onClick={() => setSolutionTab(tab.id)}
-                          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                          className={`rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
                             solutionTab === tab.id
-                              ? "bg-sky-600 text-white"
-                              : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                              ? "bg-sky-500 text-white shadow"
+                              : "bg-white/5 text-slate-300 hover:bg-white/10"
                           }`}
                         >
                           {tab.label}
                         </button>
                       ))}
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        onClick={handleRunCode}
-                        disabled={runLoading}
-                        className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"
-                      >
-                        {runLoading ? "Running..." : "Run Code"}
-                      </button>
-                      <button
-                        onClick={handleRunTests}
-                        disabled={testLoading}
-                        className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {testLoading ? "Checking tests..." : "Run Tests"}
-                      </button>
-                      <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        {activeExercise?.tests_count ?? 0} tests configured
-                      </span>
-                    </div>
                   </div>
-                  <div className="flex-1 min-h-0 overflow-hidden px-6 pb-6">
-                    {!isEditorFullscreen ? (
-                      <CodeEditor
-                        language={selectedLanguage}
-                        code={editorCode}
-                        onChange={handleEditorChange}
-                        theme={isDarkMode ? "dark" : "light"}
-                        height="100%"
-                        className="h-full"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-                        Editor is open in fullscreen mode.
-                      </div>
-                    )}
-                  </div>
+                  <p className="text-sm text-slate-400">
+                    {activeExercise ? activeExercise.title : "Select an exercise to begin."}
+                  </p>
                 </div>
-              </Panel>
-              <ResizeHandle orientation="horizontal" />
-              <Panel defaultSize={38} minSize={32} className="min-h-0 min-w-0 overflow-hidden">
-                <div className="flex h-full min-h-0 min-w-0 flex-col bg-white dark:bg-slate-900">
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-3 dark:border-slate-800">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {outputTabs.map((tab) => (
-                        <button
-                          key={tab.id}
-                          onClick={() => setOutputTab(tab.id)}
-                          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                            outputTab === tab.id
-                              ? "bg-sky-600 text-white"
-                              : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                <div className="flex items-center gap-3">
+                  <IconButton onClick={() => setIsEditorFullscreen(true)} label="Open fullscreen">
+                    <FullscreenIcon className="h-5 w-5" />
+                  </IconButton>
+                  <IconButton
+                    onClick={handleRunTests}
+                    label={testLoading ? "Running tests..." : "Run tests"}
+                    disabled={testLoading}
+                  >
+                    <RefreshIcon className={`h-5 w-5 ${testLoading ? "animate-spin" : ""}`} />
+                  </IconButton>
+                  <button
+                    onClick={handleRunCode}
+                    disabled={runLoading}
+                    className="inline-flex items-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {runLoading ? "Running..." : "Run Code"}
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-hidden px-6 pb-6 pt-4">
+                <div className="h-full overflow-hidden rounded-xl border border-white/10 bg-[#050d1c] shadow-[0_0_0_1px_rgba(15,23,42,0.4)]">
+                  {!isEditorFullscreen ? (
+                    <CodeEditor
+                      language={selectedLanguage}
+                      code={editorCode}
+                      onChange={handleEditorChange}
+                      theme={isDarkMode ? "dark" : "light"}
+                      height="100%"
+                      className="h-full"
+                      textareaClassName="h-full w-full resize-none border-0 bg-transparent p-6 font-mono text-sm text-slate-100 outline-none focus:ring-2 focus:ring-sky-500/40"
+                      unstyled
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                      Editor is open in fullscreen mode.
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="border-t border-white/10 bg-[#0f1b33] px-6 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    {outputTabs.map((tab) => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setOutputTab(tab.id)}
+                        className={`rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
+                          outputTab === tab.id
+                            ? "bg-white/15 text-white shadow"
+                            : "bg-white/5 text-slate-300 hover:bg-white/10"
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={handleSubmitCode}
+                    disabled={!activeExercise}
+                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Submit Code
+                  </button>
+                </div>
+                <div className="mt-4 min-h-[160px] overflow-hidden rounded-lg border border-white/10 bg-[#050d1c] p-4">
+                  {outputTab === "custom" ? (
+                    <pre className="h-full w-full overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-200">
+                      {consoleOutput || "Run or submit code when you're ready."}
+                    </pre>
+                  ) : (
+                    <div className="flex h-full flex-col gap-3 overflow-y-auto text-sm text-slate-200">
+                      {testResults.length === 0 && !successMessage && !feedbackHistory ? (
+                        <p className="text-slate-400">Run tests or submit code to see results here.</p>
+                      ) : null}
+                      {testResults.map((result) => (
+                        <div
+                          key={result.id}
+                          className={`rounded-lg border p-4 ${
+                            result.passed
+                              ? "border-emerald-400/50 bg-emerald-500/10 text-emerald-100"
+                              : "border-rose-500/60 bg-rose-500/10 text-rose-100"
                           }`}
                         >
-                          {tab.label}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      onClick={handleSubmitCode}
-                      disabled={!activeExercise}
-                      className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"
-                    >
-                      Submit Code
-                    </button>
-                  </div>
-                  <div className="flex-1 min-h-0 overflow-hidden">
-                    {outputTab === "console" ? (
-                      <pre className="h-full w-full overflow-y-auto bg-slate-950 p-4 font-mono text-xs text-emerald-200">
-                        {consoleOutput || "Run your code to see stdout and stderr here."}
-                      </pre>
-                    ) : null}
-                    {outputTab === "tests" ? (
-                      <div className="flex h-full flex-col gap-3 overflow-y-auto px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
-                        {testResults.length === 0 ? (
-                          <p>No test results yet. Run tests to populate this tab.</p>
-                        ) : (
-                          testResults.map((result) => (
-                            <div
-                              key={result.id}
-                              className={`rounded-xl border p-4 ${
-                                result.passed
-                                  ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100"
-                                  : "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
-                                <span>{result.title}</span>
-                                <span>{result.passed ? "Pass" : "Fail"}</span>
-                              </div>
-                              <div className="mt-3 space-y-1 font-mono text-[11px]">
-                                {result.input ? (
-                                  <p>
-                                    <span className="font-semibold">Input:</span> {result.input}
-                                  </p>
-                                ) : null}
-                                <p>
-                                  <span className="font-semibold">Stdout:</span> {result.stdout || "(empty)"}
-                                </p>
-                                <p>
-                                  <span className="font-semibold">Stderr:</span> {result.stderr || "(empty)"}
-                                </p>
-                                {result.expected ? (
-                                  <p>
-                                    <span className="font-semibold">Expected:</span> {result.expected}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    ) : null}
-                    {outputTab === "feedback" ? (
-                      <div className="flex h-full flex-col gap-3 overflow-y-auto px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
-                        {successMessage ? (
-                          <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100">
-                            {successMessage}
+                          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
+                            <span>{result.title}</span>
+                            <span>{result.passed ? "Pass" : "Fail"}</span>
                           </div>
-                        ) : (
-                          <p>Feedback from mentors will appear here after you submit your solution.</p>
-                        )}
-                        {feedbackHistory ? (
-                          <pre className="whitespace-pre-wrap rounded-xl border border-slate-200 bg-white/80 p-4 font-mono text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300">
-                            {feedbackHistory}
-                          </pre>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
+                          <div className="mt-3 space-y-1 font-mono text-[11px] text-white/90">
+                            {result.input ? (
+                              <p>
+                                <span className="font-semibold">Input:</span> {result.input}
+                              </p>
+                            ) : null}
+                            <p>
+                              <span className="font-semibold">Stdout:</span> {result.stdout || "(empty)"}
+                            </p>
+                            <p>
+                              <span className="font-semibold">Stderr:</span> {result.stderr || "(empty)"}
+                            </p>
+                            {result.expected ? (
+                              <p>
+                                <span className="font-semibold">Expected:</span> {result.expected}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                      {successMessage ? (
+                        <div className="rounded-lg border border-emerald-400/60 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+                          {successMessage}
+                        </div>
+                      ) : null}
+                      {feedbackHistory ? (
+                        <pre className="whitespace-pre-wrap rounded-lg border border-white/10 bg-white/5 p-4 font-mono text-xs text-slate-200">
+                          {feedbackHistory}
+                        </pre>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
-              </Panel>
-            </PanelGroup>
+              </div>
+            </div>
           </Panel>
         </PanelGroup>
       </div>
