@@ -791,6 +791,78 @@ const CoursePage = () => {
     return keys;
   }, [activeExercise]);
 
+  const exercisePosition = useMemo(() => {
+    if (!activeLesson || !activeExercise) {
+      return null;
+    }
+    const index = activeLesson.exercises.findIndex((exercise) => exercise.id === activeExercise.id);
+    if (index === -1) {
+      return null;
+    }
+    return {
+      index,
+      number: index + 1,
+      total: activeLesson.exercises.length
+    };
+  }, [activeLesson, activeExercise]);
+
+  const lessonExerciseStats = useMemo(() => {
+    if (!activeLesson) {
+      return { completed: 0, total: 0, percentage: 0 };
+    }
+    const total = activeLesson.exercises.length;
+    if (total === 0) {
+      return { completed: 0, total: 0, percentage: 0 };
+    }
+    const completed = activeLesson.exercises.filter(
+      (exercise) => (exercise.progress?.status ?? "") === "passed"
+    ).length;
+    return {
+      completed,
+      total,
+      percentage: Math.round((completed / total) * 100)
+    };
+  }, [activeLesson]);
+
+  const nextExerciseCandidate = useMemo(() => {
+    if (!activeLesson) {
+      return null;
+    }
+    if (exercisePosition && exercisePosition.index < activeLesson.exercises.length - 1) {
+      return activeLesson.exercises[exercisePosition.index + 1];
+    }
+    const currentLessonIndex = sortedLessons.findIndex((lesson) => lesson.id === activeLesson.id);
+    if (currentLessonIndex === -1) {
+      return null;
+    }
+    for (let index = currentLessonIndex + 1; index < sortedLessons.length; index += 1) {
+      const lesson = sortedLessons[index];
+      if (lesson.exercises.length > 0) {
+        return lesson.exercises[0];
+      }
+    }
+    return null;
+  }, [activeLesson, exercisePosition, sortedLessons]);
+
+  const nextExerciseLesson = useMemo(() => {
+    if (!nextExerciseCandidate) {
+      return null;
+    }
+    return sortedLessons.find((lesson) => lesson.id === nextExerciseCandidate.lesson_id) ?? null;
+  }, [nextExerciseCandidate, sortedLessons]);
+
+  const nextExerciseLabel = useMemo(() => {
+    if (!nextExerciseCandidate) {
+      return "All exercises completed";
+    }
+    const isSameLesson = nextExerciseCandidate.lesson_id === activeLesson?.id;
+    if (isSameLesson) {
+      return `Next exercise · ${nextExerciseCandidate.title}`;
+    }
+    const nextLessonTitle = nextExerciseLesson?.title;
+    return nextLessonTitle ? `Next class · ${nextLessonTitle}` : "Next class";
+  }, [nextExerciseCandidate, activeLesson, nextExerciseLesson]);
+
   useEffect(() => {
     if (!activeExercise) return;
     const languages = Object.keys(activeExercise.starter_code ?? {});
@@ -853,6 +925,15 @@ const CoursePage = () => {
         [selectedLanguage]: value
       }
     }));
+  };
+
+  const handleGoToNextExercise = () => {
+    if (!nextExerciseCandidate) return;
+    if (nextExerciseCandidate.lesson_id === activeLesson?.id) {
+      handleExerciseChange(nextExerciseCandidate.id);
+    } else {
+      handleLessonSelect(nextExerciseCandidate.lesson_id);
+    }
   };
 
   const handleRunCode = async () => {
@@ -1146,23 +1227,90 @@ const CoursePage = () => {
         </div>
       </header>
 
-      <div className="grid gap-6 xl:grid-cols-[280px,minmax(0,1fr),360px]">
-        <aside className="space-y-4">
-          <CourseSidebar sections={curriculumSections} activeLessonId={activeLesson?.id ?? null} onSelect={handleLessonSelect} />
-        </aside>
-
-        <main className="space-y-6">
+      <div className="grid gap-6 2xl:grid-cols-[420px,minmax(0,1fr)]">
+        <div className="space-y-6">
           {activeLesson ? (
-            <div className="space-y-6">
-              <VideoPlayer url={activeLesson.video_url} title={activeLesson.title} />
-              <LessonNotes content={activeLesson.notes} />
-
-              <section className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <>
+              <section className="space-y-5 rounded-3xl border border-transparent bg-gradient-to-br from-white via-sky-50 to-slate-100 p-6 shadow-lg dark:from-slate-900 dark:via-slate-900 dark:to-slate-950">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">
+                      Current class
+                    </span>
+                    <h2 className="text-xl font-semibold text-slate-900 dark:text-white">{activeLesson.title}</h2>
+                    <p className="max-w-xl text-sm text-slate-600 dark:text-slate-300">{activeLesson.description}</p>
+                  </div>
+                  <div className="w-full max-w-[240px] space-y-3 rounded-2xl bg-white/70 p-4 text-slate-700 shadow-sm backdrop-blur dark:bg-slate-900/60 dark:text-slate-200">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Lesson progress</p>
+                    <ProgressBar value={lessonExerciseStats.percentage} label="Exercises completed" size="sm" />
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {lessonExerciseStats.completed} of {lessonExerciseStats.total} exercises complete
+                    </p>
+                  </div>
+                </div>
+                <VideoPlayer url={activeLesson.video_url} title={activeLesson.title} />
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
-                    <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Coding playground</h2>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Current exercise</p>
+                    <p className="text-base font-semibold text-slate-900 dark:text-white">
+                      {activeExercise?.title ?? "Select an exercise"}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {exercisePosition ? `Exercise ${exercisePosition.number} of ${exercisePosition.total}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      onClick={handleMarkLessonComplete}
+                      disabled={lessonMarkLoading || lessonCompleted}
+                      className="inline-flex items-center gap-2 rounded-full border border-emerald-400/80 bg-white/70 px-4 py-2 text-sm font-semibold text-emerald-600 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-500 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-500/60 dark:bg-emerald-500/10 dark:text-emerald-200"
+                    >
+                      {lessonCompleted ? "Lesson completed" : lessonMarkLoading ? "Marking..." : "Mark lesson complete"}
+                    </button>
+                    <button
+                      onClick={handleGoToNextExercise}
+                      disabled={!nextExerciseCandidate}
+                      className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <span>{nextExerciseLabel}</span>
+                      <span aria-hidden="true">→</span>
+                    </button>
+                  </div>
+                </div>
+              </section>
+              <InstructionPanel
+                title={activeExercise?.title ?? "Exercise"}
+                instructions={activeExercise?.instructions ?? "Select an exercise to view the requirements."}
+              />
+              <LessonNotes content={activeLesson.notes} />
+            </>
+          ) : (
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+              No lessons available yet.
+            </div>
+          )}
+          <section className="space-y-4 rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Course roadmap</p>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Stay on track</h2>
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                {progressSummary.lessons_completed} / {progressSummary.lessons_total} classes · {progressSummary.exercises_completed} / {progressSummary.exercises_total} exercises
+              </div>
+            </div>
+            <CourseSidebar sections={curriculumSections} activeLessonId={activeLesson?.id ?? null} onSelect={handleLessonSelect} />
+          </section>
+        </div>
+        <div className="space-y-6">
+          {activeLesson ? (
+            <>
+              <section className="space-y-4 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-lg dark:border-slate-700 dark:bg-slate-900/70">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="space-y-1">
+                    <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Code workspace</h2>
                     <p className="text-sm text-slate-500 dark:text-slate-400">
-                      Write your solution, run quick experiments, and validate against hidden tests.
+                      Experiment with your solution, then run it or verify against the tests.
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
@@ -1208,23 +1356,16 @@ const CoursePage = () => {
                   <button
                     onClick={handleRunCode}
                     disabled={runLoading}
-                    className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"
+                    className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"
                   >
                     {runLoading ? "Running..." : "Run code"}
                   </button>
                   <button
                     onClick={handleRunTests}
                     disabled={testLoading}
-                    className="rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {testLoading ? "Checking tests..." : "Run tests"}
-                  </button>
-                  <button
-                    onClick={handleMarkLessonComplete}
-                    disabled={lessonMarkLoading || lessonCompleted}
-                    className="rounded-full border border-emerald-400 px-4 py-2 text-sm font-semibold text-emerald-600 transition hover:-translate-y-0.5 hover:shadow disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-500/60 dark:text-emerald-300"
-                  >
-                    {lessonCompleted ? "Lesson completed" : lessonMarkLoading ? "Marking..." : "Mark lesson complete"}
                   </button>
                   <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     {activeExercise?.tests_count ?? 0} tests configured
@@ -1236,27 +1377,22 @@ const CoursePage = () => {
                   </div>
                 ) : null}
               </section>
-            </div>
+              <section className="rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-lg dark:border-slate-700 dark:bg-slate-900/70">
+                <ConsoleTabs
+                  activeTab={consoleTab}
+                  onTabChange={setConsoleTab}
+                  consoleOutput={consoleOutput}
+                  testResults={testResults}
+                  feedback={successMessage ?? activeExercise?.progress?.last_error ?? undefined}
+                />
+              </section>
+            </>
           ) : (
             <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-              No lessons available yet.
+              Select a lesson to open the coding workspace.
             </div>
           )}
-        </main>
-
-        <aside className="flex flex-col gap-4">
-          <InstructionPanel
-            title={activeExercise?.title ?? "Exercise"}
-            instructions={activeExercise?.instructions ?? "Select an exercise to view the requirements."}
-          />
-          <ConsoleTabs
-            activeTab={consoleTab}
-            onTabChange={setConsoleTab}
-            consoleOutput={consoleOutput}
-            testResults={testResults}
-            feedback={successMessage ?? activeExercise?.progress?.last_error ?? undefined}
-          />
-        </aside>
+        </div>
       </div>
     </div>
   );
