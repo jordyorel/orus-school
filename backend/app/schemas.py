@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -56,6 +56,12 @@ class Course(CourseBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class TimestampedResponse(BaseModel):
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ProjectBase(BaseModel):
     title: str
     description: str
@@ -89,26 +95,170 @@ class Project(ProjectBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class Progress(BaseModel):
+class Lesson(BaseModel):
     id: int
-    student_id: int
     course_id: int
-    completed: bool
-    score: Optional[int]
+    title: str
+    description: str
+    video_url: str
+    notes: str
+    order_index: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class Exercise(BaseModel):
+    id: int
+    lesson_id: int
+    title: str
+    instructions: str
+    starter_code: Dict[str, str]
+    default_language: str
+    order_index: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ExerciseTest(BaseModel):
+    id: int
+    exercise_id: int
+    input_data: Optional[str]
+    expected_output: str
+    is_hidden: bool
+    timeout: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LessonProgress(BaseModel):
+    id: int
+    student_id: int
+    lesson_id: int
+    completed: bool
+    completed_at: Optional[datetime]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ExerciseProgress(BaseModel):
+    id: int
+    student_id: int
+    exercise_id: int
+    status: str
+    last_run_output: Optional[str]
+    last_error: Optional[str]
+    completed_at: Optional[datetime]
+    last_language: Optional[str]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LessonProgressRecord(BaseModel):
+    lesson_id: int
+    completed: bool
+    completed_at: Optional[datetime]
+
+
+class ExerciseProgressRecord(BaseModel):
+    exercise_id: int
+    status: str
+    completed_at: Optional[datetime]
+    last_language: Optional[str]
+
+
+class CourseProgressSummary(BaseModel):
+    course: Course
+    status: str
+    completion_percentage: float
+    lessons_completed: int
+    lessons_total: int
+    exercises_completed: int
+    exercises_total: int
 
 
 class ProgressResponse(BaseModel):
     student: User
-    courses: List[Course]
-    progress: List[Progress]
-    completion_rate: float
+    courses: List[CourseProgressSummary]
+    lesson_progress: List[LessonProgressRecord]
+    exercise_progress: List[ExerciseProgressRecord]
+    overall_completion_rate: float
 
-    model_config = ConfigDict(from_attributes=True)
+
+class LessonProgressInfo(BaseModel):
+    completed: bool
+    completed_at: Optional[datetime]
 
 
-class TimestampedResponse(BaseModel):
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+class ExerciseProgressInfo(BaseModel):
+    status: str
+    completed_at: Optional[datetime]
+    last_run_output: Optional[str]
+    last_error: Optional[str]
+    last_language: Optional[str]
 
-    model_config = ConfigDict(from_attributes=True)
+
+class ExerciseDetail(BaseModel):
+    id: int
+    lesson_id: int
+    title: str
+    instructions: str
+    starter_code: Dict[str, str]
+    default_language: str
+    order_index: int
+    tests_count: int
+    progress: Optional[ExerciseProgressInfo]
+
+
+class LessonDetail(BaseModel):
+    id: int
+    course_id: int
+    title: str
+    description: str
+    video_url: str
+    notes: str
+    order_index: int
+    progress: Optional[LessonProgressInfo]
+    exercises: List[ExerciseDetail]
+
+
+class CourseLessonsResponse(BaseModel):
+    course: Course
+    lessons: List[LessonDetail]
+    course_progress: CourseProgressSummary
+
+
+class RunCodeRequest(BaseModel):
+    language: str
+    code: str
+    stdin: Optional[str] = None
+
+
+class RunCodeResponse(BaseModel):
+    stdout: str
+    stderr: str
+    exit_code: int
+    execution_time: float
+
+
+class RunTestsRequest(BaseModel):
+    exercise_id: int
+    language: str
+    code: str
+
+
+class TestCaseResult(BaseModel):
+    test_id: int
+    passed: bool
+    stdout: str
+    stderr: str
+    expected_output: str
+    input_data: Optional[str]
+
+
+class RunTestsResponse(BaseModel):
+    passed_all: bool
+    results: List[TestCaseResult]
+
+
+class MarkLessonCompleteRequest(BaseModel):
+    lesson_id: int
