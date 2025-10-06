@@ -7,6 +7,8 @@ export type CodeEditorProps = {
   theme: "light" | "dark";
   height?: string | number;
   className?: string;
+  textareaClassName?: string;
+  unstyled?: boolean;
 };
 
 type Monaco = typeof import("monaco-editor");
@@ -52,7 +54,16 @@ const loadMonacoEditor = () => {
   return monacoModulePromise;
 };
 
-const CodeEditor = ({ language, code, onChange, theme, height, className }: CodeEditorProps) => {
+const CodeEditor = ({
+  language,
+  code,
+  onChange,
+  theme,
+  height,
+  className,
+  textareaClassName,
+  unstyled,
+}: CodeEditorProps) => {
   const [monacoModule, setMonacoModule] = useState<MonacoEditorModule | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const editorLanguage = useMemo(() => language.toLowerCase(), [language]);
@@ -85,20 +96,31 @@ const CodeEditor = ({ language, code, onChange, theme, height, className }: Code
     monaco.languages.typescript.javascriptDefaults.setEagerModelSync(true);
   };
 
+  const containerClassName = unstyled
+    ? className ?? ""
+    : `overflow-hidden rounded-2xl border border-slate-200 shadow-sm dark:border-slate-700 ${className ?? ""}`;
+
+  const resolvedTextareaClassName =
+    textareaClassName ??
+    (unstyled
+      ? "h-full w-full resize-none overflow-auto border-0 bg-transparent p-4 font-mono text-sm text-slate-100 outline-none focus:ring-2 focus:ring-sky-500/40"
+      : "h-full w-full resize-none overflow-auto border-0 p-4 font-mono text-sm outline-none focus:ring-2 focus:ring-blue-200 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-blue-500");
+
+  const fallbackNoticeClassName = unstyled
+    ? "border-t border-white/10 bg-white/5 p-3 text-xs text-slate-300"
+    : "border-t border-slate-200 bg-slate-50 p-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300";
+
   if (!monacoModule) {
     return (
-      <div
-        className={`overflow-hidden rounded-2xl border border-slate-200 shadow-sm dark:border-slate-700 ${className ?? ""}`}
-        style={{ height: resolvedHeight }}
-      >
+      <div className={containerClassName} style={{ height: resolvedHeight }}>
         <textarea
-          className="h-full w-full resize-none overflow-auto border-0 p-4 font-mono text-sm outline-none focus:ring-2 focus:ring-blue-200 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-blue-500"
+          className={resolvedTextareaClassName}
           value={code}
           onChange={(event) => onChange(event.target.value)}
           spellCheck={false}
         />
         {loadFailed ? (
-          <p className="border-t border-slate-200 bg-slate-50 p-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+          <p className={fallbackNoticeClassName}>
             Install <code>@monaco-editor/react</code> to enable the rich Monaco code editor.
           </p>
         ) : null}
@@ -109,10 +131,7 @@ const CodeEditor = ({ language, code, onChange, theme, height, className }: Code
   const EditorComponent = monacoModule.default;
 
   return (
-    <div
-      className={`overflow-hidden rounded-2xl border border-slate-200 shadow-sm dark:border-slate-700 ${className ?? ""}`}
-      style={{ height: resolvedHeight }}
-    >
+    <div className={containerClassName} style={{ height: resolvedHeight }}>
       <EditorComponent
         height={resolvedHeight}
         defaultLanguage={editorLanguage}
