@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import api from "../api";
 import CodeEditor from "../components/CodeEditor";
 import CourseSidebar, { CurriculumSection, LessonStatus } from "../components/CourseSidebar";
@@ -599,51 +599,29 @@ const CoursePage = () => {
   const [selectedLanguage, setSelectedLanguage] = useState<string>("python");
   const [solutionTab, setSolutionTab] = useState<"solution1" | "solution2" | "solution3">("solution1");
   const [consoleOutput, setConsoleOutput] = useState<string>("");
-  const [outputTab, setOutputTab] = useState<"console" | "tests" | "feedback">("console");
+  const [outputTab, setOutputTab] = useState<"console" | "raw" | "custom">("console");
+  const [testSectionTab, setTestSectionTab] = useState<"tests" | "quick" | "sandbox">("tests");
   const [testResults, setTestResults] = useState<ConsoleResult[]>([]);
+  const [isDarkEditor, setIsDarkEditor] = useState(true);
   const [runLoading, setRunLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
   const [lessonMarkLoading, setLessonMarkLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [lessonPanelOpen, setLessonPanelOpen] = useState(true);
+  const [videoPanelOpen, setVideoPanelOpen] = useState(true);
+  const [exercisePanelOpen, setExercisePanelOpen] = useState(true);
   const [videoWatched, setVideoWatched] = useState(false);
+  const [customInput, setCustomInput] = useState("");
+  const [customOutput, setCustomOutput] = useState("");
+  const [sandboxNotes, setSandboxNotes] = useState("");
   const [autosaveStatus, setAutosaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [hintStates, setHintStates] = useState<Record<number, boolean>>({});
-  const [leftTab, setLeftTab] = useState<"overview" | "lesson" | "video" | "exercise">("lesson");
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
-    if (typeof window === "undefined") return true;
-    return localStorage.getItem("orus-course-theme") !== "light";
-  });
-  const [isEditorFullscreen, setIsEditorFullscreen] = useState(false);
 
   const activeLessonRef = useRef<number | null>(null);
   const activeExerciseRef = useRef<number | null>(null);
   const restoredDraftsRef = useRef<Set<string>>(new Set());
   const storageKeyRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const root = document.documentElement;
-    if (isDarkMode) {
-      root.classList.add("dark");
-    } else {
-      root.classList.remove("dark");
-    }
-    localStorage.setItem("orus-course-theme", isDarkMode ? "dark" : "light");
-  }, [isDarkMode]);
-
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const body = document.body;
-    if (isEditorFullscreen) {
-      body.classList.add("overflow-hidden");
-    } else {
-      body.classList.remove("overflow-hidden");
-    }
-    return () => {
-      body.classList.remove("overflow-hidden");
-    };
-  }, [isEditorFullscreen]);
 
   useEffect(() => {
     activeLessonRef.current = activeLessonId;
@@ -991,17 +969,16 @@ const CoursePage = () => {
     { id: "solution3" as const, label: "Solution 3" }
   ];
 
-  const leftTabs = [
-    { id: "overview" as const, label: "Course Overview" },
-    { id: "lesson" as const, label: "Current Lesson" },
-    { id: "video" as const, label: "Video Explanation" },
-    { id: "exercise" as const, label: "Exercise" }
-  ];
-
   const outputTabs = [
     { id: "console" as const, label: "Console" },
+    { id: "raw" as const, label: "Raw Output" },
+    { id: "custom" as const, label: "Custom Output" }
+  ];
+
+  const testSectionTabs = [
     { id: "tests" as const, label: "Tests" },
-    { id: "feedback" as const, label: "Feedback" }
+    { id: "quick" as const, label: "Quick Test" },
+    { id: "sandbox" as const, label: "Sandbox" }
   ];
 
   const autosaveCopy =
@@ -1090,13 +1067,13 @@ const CoursePage = () => {
     setConsoleOutput("");
     setTestResults([]);
     setActiveLessonId(lessonId);
-    setLeftTab("lesson");
-    setIsEditorFullscreen(false);
     setVideoWatched(false);
     setSolutionTab("solution1");
     setOutputTab("console");
-    setAutosaveStatus("idle");
-    setHintStates({});
+    setTestSectionTab("tests");
+    setCustomInput("");
+    setCustomOutput("");
+    setSandboxNotes("");
     const lesson = lessons.find((item) => item.id === lessonId);
     const firstExercise = lesson?.exercises[0];
     setActiveExerciseId(firstExercise?.id ?? null);
@@ -1119,9 +1096,10 @@ const CoursePage = () => {
     setActiveExerciseId(exerciseId);
     setSolutionTab("solution1");
     setOutputTab("console");
-    setAutosaveStatus("idle");
-    setHintStates({});
-    setIsEditorFullscreen(false);
+    setTestSectionTab("tests");
+    setCustomInput("");
+    setCustomOutput("");
+    setSandboxNotes("");
     const exercise = exercises.find((item) => item.id === exerciseId);
     if (exercise) {
       const languages = Object.keys(exercise.starter_code ?? {});
@@ -1142,20 +1120,40 @@ const CoursePage = () => {
   useEffect(() => {
     setSolutionTab("solution1");
     setOutputTab("console");
+    setTestSectionTab("tests");
+    setCustomInput("");
+    setCustomOutput("");
+    setSandboxNotes("");
     setAutosaveStatus("idle");
-    setHintStates({});
-    setIsEditorFullscreen(false);
   }, [activeExerciseId]);
+
+  const handleRunQuickTest = () => {
+    setTestSectionTab("quick");
+    setOutputTab("custom");
+    if (!customInput.trim()) {
+      setCustomOutput("Provide an input case to try a quick run.");
+      return;
+    }
+    setCustomOutput(
+      `Quick test executed with your draft.\nInput:\n${customInput}\n\nReview the console tab for stdout and stderr.`
+    );
+  };
+
+  const handleSandboxRun = () => {
+    setTestSectionTab("sandbox");
+    const timestamp = new Date().toLocaleTimeString();
+    setSandboxNotes((notes) =>
+      notes ? `${notes}\n\nRun logged at ${timestamp}.` : `Run logged at ${timestamp}.`
+    );
+  };
 
   const handleSubmitCode = () => {
     if (!activeExercise) return;
     if (!testsPassed) {
       setSuccessMessage("Run and pass the tests before submitting.");
-      setOutputTab("feedback");
       return;
     }
     setSuccessMessage("Submission received 🎉 Your mentor will review it shortly.");
-    setOutputTab("feedback");
   };
 
   const toggleHint = (index: number) => {
@@ -1236,7 +1234,8 @@ const CoursePage = () => {
   const handleRunTests = async () => {
     if (!activeExercise) return;
     setTestLoading(true);
-    setOutputTab("tests");
+    setTestSectionTab("tests");
+    setOutputTab("console");
     setSuccessMessage(null);
     setTestResults([]);
     if (isDemoMode) {
@@ -1260,8 +1259,10 @@ const CoursePage = () => {
         input: test.input
       }));
       setTestResults(simulatedResults);
-      setOutputTab("tests");
-      setSuccessMessage(simulation?.message ?? "Great job 🚀 You’re one step closer to mastering this lesson!");
+      setSuccessMessage(
+        simulation?.message ??
+          "Great job 🚀 You’re one step closer to mastering this lesson!"
+      );
       setCourseData((prev) => {
         if (!prev || !activeLesson) {
           return prev;
@@ -1324,11 +1325,8 @@ const CoursePage = () => {
         input: result.input_data ?? undefined
       }));
       setTestResults(mapped);
-      setOutputTab("tests");
       if (data.passed_all) {
-        setSuccessMessage("All tests passed! Ready for submission.");
-      } else {
-        setSuccessMessage(null);
+        setSuccessMessage("Great job 🚀 You’re one step closer to mastering this lesson!");
       }
       await loadCourse();
     } finally {
@@ -1417,552 +1415,484 @@ const CoursePage = () => {
 
   const profileSubline = isDemoMode ? "Demo student" : "Student workspace";
   const nextButtonDisabled = !nextExerciseCandidate || !readyForNextLesson;
-  const navLanguageDisabled = availableLanguages.length === 0;
-  const nextLessonHelper = nextButtonDisabled
-    ? "Watch the video and pass all tests to unlock the next lesson."
-    : "All requirements met. Continue when you're ready.";
-  const feedbackHistory = activeExercise?.progress?.last_run_output ?? "";
 
   return (
-    <>
-      <div className="flex min-h-[85vh] flex-col gap-6">
-        {isDemoMode ? (
-          <div className="rounded-3xl border border-amber-300 bg-amber-50 p-5 text-sm text-amber-800 shadow-sm dark:border-amber-400/60 dark:bg-amber-500/10 dark:text-amber-100">
-            You are exploring the interactive playground with sample data. Sign in to access your real courses and save progress.
-          </div>
-        ) : null}
-        <div className="flex flex-1 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white/80 shadow-xl dark:border-slate-700 dark:bg-slate-900/70">
-          <nav className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white/70 px-6 py-4 text-sm dark:border-slate-800 dark:bg-slate-900/70">
-            <div className="flex items-center gap-6">
-              <Link to="/app" className="flex items-center gap-2 text-lg font-semibold text-slate-900 transition-colors hover:text-sky-600 dark:text-white dark:hover:text-sky-400">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-sky-500 text-lg font-bold text-white shadow-soft">
-                  O
-                </span>
-                <span>Orus School</span>
-              </Link>
-              <Link
-                to="/app"
-                className="text-sm font-semibold text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-              >
-                Dashboard
-              </Link>
-            </div>
-            <div className="flex flex-wrap items-center gap-4">
-              <button
-                onClick={() => setIsDarkMode((value) => !value)}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-              >
-                {isDarkMode ? "☀️ Light" : "🌙 Dark"}
-              </button>
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                <label htmlFor="nav-language" className="text-xs">
-                  Language
-                </label>
-                <select
-                  id="nav-language"
-                  value={navLanguageDisabled ? "" : selectedLanguage}
-                  onChange={(event) => setSelectedLanguage(event.target.value)}
-                  disabled={navLanguageDisabled}
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                >
-                  {navLanguageDisabled ? (
-                    <option value="" disabled>
-                      No languages
-                    </option>
-                  ) : (
-                    availableLanguages.map((language) => (
-                      <option key={language} value={language}>
-                        {language.toUpperCase()}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
-              <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-sm font-semibold text-white">
-                  {initials}
-                </div>
-                <div className="text-left">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{displayName}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{profileSubline}</p>
-                </div>
-                <button
-                  type="button"
-                  className="text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                  aria-label="Open profile menu"
-                >
-                  ▾
-                </button>
-              </div>
-            </div>
-          </nav>
-          <div className="flex flex-1 flex-col bg-slate-50/40 dark:bg-slate-950/20">
-            <PanelGroup direction="horizontal" className="flex h-full min-h-[660px] w-full gap-0">
-              <Panel defaultSize={35} minSize={24} maxSize={46} className="overflow-hidden">
-                <div className="flex h-full flex-col border-r border-slate-200/60 bg-white dark:border-slate-800/60 dark:bg-slate-900">
-                  <div className="flex items-center gap-6 border-b border-slate-200 px-6 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                    {leftTabs.map((tab) => (
-                      <button
-                        key={tab.id}
-                        onClick={() => setLeftTab(tab.id)}
-                        className={`relative pb-2 transition ${
-                          leftTab === tab.id
-                            ? "text-slate-900 dark:text-white"
-                            : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                        }`}
-                      >
-                        {tab.label}
-                        <span
-                          className={`absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-sky-500 transition ${
-                            leftTab === tab.id ? "opacity-100" : "opacity-0"
-                          }`}
-                        />
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex-1 overflow-y-auto px-6 py-6 text-sm text-slate-600 dark:text-slate-300">
-                    {leftTab === "overview" ? (
-                      <div className="space-y-6">
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            <span>Year {courseData.course.year}</span>
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${courseStatusInfo.badge}`}
-                            >
-                              <span aria-hidden="true">{courseStatusInfo.icon}</span>
-                              <span>{courseStatusInfo.label}</span>
-                            </span>
-                          </div>
-                          <h1 className="text-xl font-semibold text-slate-900 dark:text-white">{courseData.course.title}</h1>
-                          <p className="text-sm text-slate-500 dark:text-slate-400">{courseData.course.description}</p>
-                        </div>
-                        <div className="space-y-4">
-                          <ProgressBar value={progressSummary.completion_percentage} label="Course completion" size="sm" />
-                          <div className="grid gap-3 sm:grid-cols-3">
-                            <div className="rounded-xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/60">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Lessons completed</p>
-                              <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
-                                {progressSummary.lessons_completed} / {progressSummary.lessons_total}
-                              </p>
-                            </div>
-                            <div className="rounded-xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/60">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Exercises passed</p>
-                              <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
-                                {progressSummary.exercises_completed} / {progressSummary.exercises_total}
-                              </p>
-                            </div>
-                            <div className="rounded-xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/60">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</p>
-                              <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{courseStatusInfo.label}</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="space-y-3">
-                          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Course overview</h2>
-                          <div className="rounded-xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/60">
-                            <CourseSidebar
-                              sections={curriculumSections}
-                              activeLessonId={activeLesson?.id ?? null}
-                              onSelect={handleLessonSelect}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
-                    {leftTab === "lesson" ? (
-                      activeLesson ? (
-                        <div className="space-y-6">
-                          <div className="space-y-2">
-                            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{activeLesson.title}</h2>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">{activeLesson.description}</p>
-                          </div>
-                          <div className="space-y-3 rounded-xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/60">
-                            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Learning objectives</h3>
-                            <ul className="space-y-2">
-                              {lessonObjectives.map((objective) => (
-                                <li key={objective.id} className="flex items-center gap-2 text-sm">
-                                  <span
-                                    className={`flex h-5 w-5 items-center justify-center rounded border text-xs ${
-                                      objective.checked
-                                        ? "border-emerald-400 bg-emerald-100 text-emerald-700 dark:border-emerald-400/60 dark:bg-emerald-500/10 dark:text-emerald-200"
-                                        : "border-slate-300 bg-white text-transparent dark:border-slate-700 dark:bg-slate-800"
-                                    }`}
-                                  >
-                                    ✓
-                                  </span>
-                                  <span>{objective.label}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            <span>
-                              {lessonExerciseStats.total > 0
-                                ? `${lessonExerciseStats.completed} of ${lessonExerciseStats.total} exercises completed`
-                                : "No exercises configured"}
-                            </span>
-                            <button
-                              onClick={handleMarkLessonComplete}
-                              disabled={lessonMarkLoading || lessonCompleted}
-                              className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {lessonCompleted ? "Lesson read" : lessonMarkLoading ? "Marking..." : "Mark Lesson Read"}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <p>Select a lesson from the overview tab to get started.</p>
-                      )
-                    ) : null}
-                    {leftTab === "video" ? (
-                      activeLesson ? (
-                        <div className="space-y-5">
-                          <VideoPlayer url={activeLesson.video_url} title={activeLesson.title} />
-                          <div className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            <span>{videoWatched ? "Video marked as watched" : "Watch the video to unlock the next lesson."}</span>
-                            <button
-                              onClick={handleMarkVideoWatched}
-                              disabled={videoWatched}
-                              className="rounded-full bg-sky-600 px-4 py-2 text-[11px] font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {videoWatched ? "Watched" : "Mark as watched"}
-                            </button>
-                          </div>
-                          {activeLesson.notes ? (
-                            <div className="rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-                              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Transcript & notes</h3>
-                              <div
-                                className="prose prose-slate mt-3 max-w-none text-sm dark:prose-invert"
-                                dangerouslySetInnerHTML={{ __html: activeLesson.notes }}
-                              />
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <p>Select a lesson to watch the explanation.</p>
-                      )
-                    ) : null}
-                    {leftTab === "exercise" ? (
-                      activeExercise ? (
-                        <div className="space-y-6">
-                          <div className="rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-                            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Problem description</h3>
-                            <div
-                              className="prose prose-slate mt-3 max-w-none text-sm leading-relaxed dark:prose-invert"
-                              dangerouslySetInnerHTML={{ __html: activeExercise.instructions }}
-                            />
-                          </div>
-                          <div className="space-y-3">
-                            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Hints</h3>
-                            {exerciseHints.length === 0 ? (
-                              <p>No hints configured for this exercise.</p>
-                            ) : (
-                              exerciseHints.map((hint, index) => (
-                                <div key={index} className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/60">
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleHint(index)}
-                                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-slate-600 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                                  >
-                                    <span>Hint {index + 1}</span>
-                                    <span className="text-xs">{hintStates[index] ? "▾" : "▸"}</span>
-                                  </button>
-                                  {hintStates[index] ? (
-                                    <p className="px-4 pb-4 text-sm text-slate-600 dark:text-slate-300">{hint}</p>
-                                  ) : null}
-                                </div>
-                              ))
-                            )}
-                          </div>
-                          {activeLesson?.notes ? (
-                            <div className="rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-                              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Lesson notes</h3>
-                              <div
-                                className="prose prose-slate mt-3 max-w-none text-sm dark:prose-invert"
-                                dangerouslySetInnerHTML={{ __html: activeLesson.notes }}
-                              />
-                            </div>
-                          ) : null}
-                          <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            <span>
-                              {exercisePosition ? `Exercise ${exercisePosition.number} of ${exercisePosition.total}` : ""}
-                            </span>
-                            <div className="flex items-center gap-3">
-                              <span className="hidden text-xs font-medium text-slate-500 dark:text-slate-400 sm:inline">{nextLessonHelper}</span>
-                              <button
-                                onClick={handleGoToNextExercise}
-                                disabled={nextButtonDisabled}
-                                className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
-                              >
-                                <span>{nextExerciseLabel}</span>
-                                <span aria-hidden="true">→</span>
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <p>Select an exercise from the workspace to load the prompt.</p>
-                      )
-                    ) : null}
-                  </div>
-                </div>
-              </Panel>
-              <ResizeHandle orientation="vertical" />
-              <Panel defaultSize={65} minSize={45} className="overflow-hidden">
-                <PanelGroup direction="vertical" className="flex h-full w-full gap-0">
-                  <Panel defaultSize={62} minSize={40} className="overflow-hidden">
-                    <div className="flex h-full flex-col bg-white dark:bg-slate-900">
-                      <div className="flex flex-col gap-4 border-b border-slate-200 px-6 py-4 dark:border-slate-800">
-                        <div className="flex flex-wrap items-start justify-between gap-4">
-                          <div className="space-y-1">
-                            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-                              {activeExercise ? activeExercise.title : "Code workspace"}
-                            </h2>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">
-                              {activeLesson ? activeLesson.title : "Select a lesson to begin."}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            <span>{autosaveCopy}</span>
-                            <button
-                              onClick={() => setIsEditorFullscreen(true)}
-                              className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:-translate-y-0.5 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                            >
-                              Fullscreen
-                            </button>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="exercise-select">
-                            Exercise
-                          </label>
-                          <select
-                            id="exercise-select"
-                            value={activeExercise?.id ?? ""}
-                            onChange={(event) => handleExerciseChange(Number(event.target.value))}
-                            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                          >
-                            {exercises.map((exercise) => (
-                              <option key={exercise.id} value={exercise.id}>
-                                {exercise.title}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="hidden items-center gap-2 sm:flex">
-                            {solutionTabs.map((tab) => (
-                              <button
-                                key={tab.id}
-                                onClick={() => setSolutionTab(tab.id)}
-                                className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                                  solutionTab === tab.id
-                                    ? "bg-sky-600 text-white"
-                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                                }`}
-                              >
-                                {tab.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 sm:hidden">
-                          {solutionTabs.map((tab) => (
-                            <button
-                              key={tab.id}
-                              onClick={() => setSolutionTab(tab.id)}
-                              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                                solutionTab === tab.id
-                                  ? "bg-sky-600 text-white"
-                                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                              }`}
-                            >
-                              {tab.label}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <button
-                            onClick={handleRunCode}
-                            disabled={runLoading}
-                            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"
-                          >
-                            {runLoading ? "Running..." : "Run Code"}
-                          </button>
-                          <button
-                            onClick={handleRunTests}
-                            disabled={testLoading}
-                            className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {testLoading ? "Checking tests..." : "Run Tests"}
-                          </button>
-                          <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            {activeExercise?.tests_count ?? 0} tests configured
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex-1 overflow-hidden px-6 pb-6">
-                        {!isEditorFullscreen ? (
-                          <CodeEditor
-                            language={selectedLanguage}
-                            code={editorCode}
-                            onChange={handleEditorChange}
-                            theme={isDarkMode ? "dark" : "light"}
-                            height="100%"
-                            className="h-full"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-                            Editor is open in fullscreen mode.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </Panel>
-                  <ResizeHandle orientation="horizontal" />
-                  <Panel defaultSize={38} minSize={32} className="overflow-hidden">
-                    <div className="flex h-full flex-col bg-white dark:bg-slate-900">
-                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-3 dark:border-slate-800">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {outputTabs.map((tab) => (
-                            <button
-                              key={tab.id}
-                              onClick={() => setOutputTab(tab.id)}
-                              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                                outputTab === tab.id
-                                  ? "bg-sky-600 text-white"
-                                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                              }`}
-                            >
-                              {tab.label}
-                            </button>
-                          ))}
-                        </div>
-                        <button
-                          onClick={handleSubmitCode}
-                          disabled={!activeExercise}
-                          className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"
-                        >
-                          Submit Code
-                        </button>
-                      </div>
-                      <div className="flex-1 overflow-hidden">
-                        {outputTab === "console" ? (
-                          <pre className="h-full w-full overflow-y-auto bg-slate-950 p-4 font-mono text-xs text-emerald-200">
-                            {consoleOutput || "Run your code to see stdout and stderr here."}
-                          </pre>
-                        ) : null}
-                        {outputTab === "tests" ? (
-                          <div className="flex h-full flex-col gap-3 overflow-y-auto px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
-                            {testResults.length === 0 ? (
-                              <p>No test results yet. Run tests to populate this tab.</p>
-                            ) : (
-                              testResults.map((result) => (
-                                <div
-                                  key={result.id}
-                                  className={`rounded-xl border p-4 ${
-                                    result.passed
-                                      ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100"
-                                      : "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100"
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
-                                    <span>{result.title}</span>
-                                    <span>{result.passed ? "Pass" : "Fail"}</span>
-                                  </div>
-                                  <div className="mt-3 space-y-1 font-mono text-[11px]">
-                                    {result.input ? (
-                                      <p>
-                                        <span className="font-semibold">Input:</span> {result.input}
-                                      </p>
-                                    ) : null}
-                                    <p>
-                                      <span className="font-semibold">Stdout:</span> {result.stdout || "(empty)"}
-                                    </p>
-                                    <p>
-                                      <span className="font-semibold">Stderr:</span> {result.stderr || "(empty)"}
-                                    </p>
-                                    {result.expected ? (
-                                      <p>
-                                        <span className="font-semibold">Expected:</span> {result.expected}
-                                      </p>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              ))
-                            )}
-                          </div>
-                        ) : null}
-                        {outputTab === "feedback" ? (
-                          <div className="flex h-full flex-col gap-3 overflow-y-auto px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
-                            {successMessage ? (
-                              <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100">
-                                {successMessage}
-                              </div>
-                            ) : (
-                              <p>Feedback from mentors will appear here after you submit your solution.</p>
-                            )}
-                            {feedbackHistory ? (
-                              <pre className="whitespace-pre-wrap rounded-xl border border-slate-200 bg-white/80 p-4 font-mono text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300">
-                                {feedbackHistory}
-                              </pre>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </Panel>
-                </PanelGroup>
-              </Panel>
-            </PanelGroup>
-          </div>
-        </div>
-      </div>
-      {isEditorFullscreen ? (
-        <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/90 p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-4 text-slate-100">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold">
-                {activeExercise ? activeExercise.title : "Code workspace"}
-              </h2>
-              <p className="text-sm text-slate-300">{courseData.course.title}</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-wide">
-              <button
-                onClick={handleRunCode}
-                disabled={runLoading}
-                className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {runLoading ? "Running..." : "Run Code"}
-              </button>
-              <button
-                onClick={handleRunTests}
-                disabled={testLoading}
-                className="inline-flex items-center gap-2 rounded-full bg-sky-500 px-4 py-2 text-xs font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {testLoading ? "Checking tests..." : "Run Tests"}
-              </button>
-              <button
-                onClick={() => setIsEditorFullscreen(false)}
-                className="inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-2 text-xs font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-white/30"
-              >
-                Exit Fullscreen
-              </button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <CodeEditor
-              language={selectedLanguage}
-              code={editorCode}
-              onChange={handleEditorChange}
-              theme="dark"
-              height="100%"
-              className="h-full border-slate-800"
-            />
-          </div>
+    <div className="flex min-h-[85vh] flex-col gap-6">
+      {isDemoMode ? (
+        <div className="rounded-3xl border border-amber-300 bg-amber-50 p-5 text-sm text-amber-800 shadow-sm dark:border-amber-400/60 dark:bg-amber-500/10 dark:text-amber-100">
+          You are exploring the interactive playground with sample data. Sign in to access your real courses and save progress.
         </div>
       ) : null}
-    </>
+      <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Year {courseData.course.year} · Foundations
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${courseStatusInfo.badge}`}
+              >
+                <span aria-hidden="true">{courseStatusInfo.icon}</span>
+                <span>{courseStatusInfo.label}</span>
+              </span>
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">{courseData.course.title}</h1>
+              <p className="max-w-2xl text-sm text-slate-500 dark:text-slate-400">{courseData.course.description}</p>
+            </div>
+            <div className="max-w-xs sm:max-w-sm">
+              <ProgressBar value={progressSummary.completion_percentage} label="Course completion" size="sm" />
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-4 sm:flex-row sm:items-center">
+            <button
+              onClick={() => setIsDarkEditor((value) => !value)}
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+            >
+              {isDarkEditor ? "☀️ Light editor" : "🌙 Dark editor"}
+            </button>
+            <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-sm font-semibold text-white">
+                {initials}
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">{displayName}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{profileSubline}</p>
+              </div>
+              <button
+                type="button"
+                className="text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                aria-label="Open profile menu"
+              >
+                ▾
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Lessons completed</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
+              {progressSummary.lessons_completed} / {progressSummary.lessons_total}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Exercises passed</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
+              {progressSummary.exercises_completed} / {progressSummary.exercises_total}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{courseStatusInfo.label}</p>
+          </div>
+        </div>
+      </header>
+      <div className="flex flex-1 flex-col gap-4 rounded-3xl border border-slate-200 bg-white/70 p-4 shadow-lg dark:border-slate-700 dark:bg-slate-900/60">
+        <PanelGroup direction="horizontal" className="flex h-full min-h-[640px] w-full gap-4">
+          <Panel defaultSize={35} minSize={25} maxSize={45} className="overflow-hidden">
+            <div className="flex h-full flex-col gap-4 overflow-hidden">
+              <section className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <button
+                  type="button"
+                  onClick={() => setLessonPanelOpen((value) => !value)}
+                  className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:text-slate-300"
+                >
+                  <span>Current Lesson</span>
+                  <span className="text-xs">{lessonPanelOpen ? "▾" : "▸"}</span>
+                </button>
+                {lessonPanelOpen && activeLesson ? (
+                  <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
+                    <div className="space-y-2">
+                      <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{activeLesson.title}</h2>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">{activeLesson.description}</p>
+                    </div>
+                    <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/60">
+                      <ProgressBar value={lessonExerciseStats.percentage} label="Exercises completed" size="sm" />
+                      <ul className="space-y-2">
+                        {lessonObjectives.map((objective) => (
+                          <li
+                            key={objective.id}
+                            className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300"
+                          >
+                            <span
+                              className={`flex h-5 w-5 items-center justify-center rounded border ${
+                                objective.checked
+                                  ? "border-emerald-400 bg-emerald-100 text-emerald-700 dark:border-emerald-400/60 dark:bg-emerald-500/10 dark:text-emerald-200"
+                                  : "border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-800"
+                              }`}
+                            >
+                              {objective.checked ? "✓" : ""}
+                            </span>
+                            <span>{objective.label}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <button
+                      onClick={handleMarkLessonComplete}
+                      disabled={lessonMarkLoading || lessonCompleted}
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {lessonCompleted ? "Lesson completed" : lessonMarkLoading ? "Marking..." : "Mark lesson completed"}
+                    </button>
+                  </div>
+                ) : null}
+              </section>
+              <section className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <button
+                  type="button"
+                  onClick={() => setVideoPanelOpen((value) => !value)}
+                  className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:text-slate-300"
+                >
+                  <span>Video Explanation</span>
+                  <span className="text-xs">{videoPanelOpen ? "▾" : "▸"}</span>
+                </button>
+                {videoPanelOpen && activeLesson ? (
+                  <div className="flex flex-col gap-4 p-4">
+                    <VideoPlayer url={activeLesson.video_url} title={activeLesson.title} />
+                    <div className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      <span>{videoWatched ? "Video marked as watched" : "Watch the video to unlock the next lesson."}</span>
+                      <button
+                        onClick={handleMarkVideoWatched}
+                        disabled={videoWatched}
+                        className="rounded-full bg-sky-600 px-4 py-2 text-[11px] font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {videoWatched ? "Watched" : "Mark as watched"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+              <section className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <button
+                  type="button"
+                  onClick={() => setExercisePanelOpen((value) => !value)}
+                  className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:text-slate-300"
+                >
+                  <span>Exercise</span>
+                  <span className="text-xs">{exercisePanelOpen ? "▾" : "▸"}</span>
+                </button>
+                {exercisePanelOpen && activeExercise ? (
+                  <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
+                    <div className="rounded-xl border border-slate-200 bg-white/80 p-4 text-sm leading-relaxed text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Prompt</h3>
+                      <div
+                        className="prose prose-slate mt-3 max-w-none text-sm dark:prose-invert"
+                        dangerouslySetInnerHTML={{ __html: activeExercise.instructions }}
+                      />
+                    </div>
+                    <div className="space-y-2 rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Hints</h3>
+                      {exerciseHints.map((hint, index) => (
+                        <div
+                          key={index}
+                          className="rounded-lg border border-slate-200 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-800/40"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleHint(index)}
+                            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-slate-600 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                          >
+                            <span>Hint {index + 1}</span>
+                            <span className="text-xs">{hintStates[index] ? "▾" : "▸"}</span>
+                          </button>
+                          {hintStates[index] ? (
+                            <p className="px-4 pb-4 text-sm text-slate-600 dark:text-slate-300">{hint}</p>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                    {activeLesson.notes ? (
+                      <div className="rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/60">
+                        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Notes</h3>
+                        <div
+                          className="prose prose-slate mt-3 max-w-none text-sm dark:prose-invert"
+                          dangerouslySetInnerHTML={{ __html: activeLesson.notes }}
+                        />
+                      </div>
+                    ) : null}
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        {exercisePosition ? `Exercise ${exercisePosition.number} of ${exercisePosition.total}` : null}
+                      </div>
+                      <button
+                        onClick={handleGoToNextExercise}
+                        disabled={nextButtonDisabled}
+                        className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <span>{nextExerciseLabel}</span>
+                        <span aria-hidden="true">→</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+              <section className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <div className="border-b border-slate-200 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:text-slate-300">
+                  Course roadmap
+                </div>
+                <div className="flex-1 overflow-y-auto p-4">
+                  <CourseSidebar sections={curriculumSections} activeLessonId={activeLesson?.id ?? null} onSelect={handleLessonSelect} />
+                </div>
+              </section>
+            </div>
+          </Panel>
+          <ResizeHandle orientation="vertical" />
+          <Panel defaultSize={65} minSize={45} className="overflow-hidden">
+            <PanelGroup direction="vertical" className="flex h-full w-full gap-4">
+              <Panel defaultSize={60} minSize={40} className="overflow-hidden">
+                <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                  <div className="flex flex-col gap-4 border-b border-slate-200 p-4 dark:border-slate-700">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Code workspace</h2>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                          {activeExercise ? activeExercise.title : "Select an exercise to begin"}
+                        </p>
+                      </div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{autosaveCopy}</div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="exercise-select">
+                        Exercise
+                      </label>
+                      <select
+                        id="exercise-select"
+                        value={activeExercise?.id ?? ""}
+                        onChange={(event) => handleExerciseChange(Number(event.target.value))}
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                      >
+                        {exercises.map((exercise) => (
+                          <option key={exercise.id} value={exercise.id}>
+                            {exercise.title}
+                          </option>
+                        ))}
+                      </select>
+                      <label className="text-sm font-medium text-slate-600 dark:text-slate-300" htmlFor="language-select">
+                        Language
+                      </label>
+                      <select
+                        id="language-select"
+                        value={selectedLanguage}
+                        onChange={(event) => setSelectedLanguage(event.target.value)}
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                      >
+                        {availableLanguages.map((language) => (
+                          <option key={language} value={language}>
+                            {language.toUpperCase()}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {solutionTabs.map((tab) => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setSolutionTab(tab.id)}
+                          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                            solutionTab === tab.id
+                              ? "bg-sky-600 text-white"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex flex-1 flex-col">
+                    <div className="flex-1 overflow-hidden">
+                      <CodeEditor
+                        language={selectedLanguage}
+                        code={editorCode}
+                        onChange={handleEditorChange}
+                        theme={isDarkEditor ? "dark" : "light"}
+                        height="100%"
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/60 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/60">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button
+                          onClick={handleRunCode}
+                          disabled={runLoading}
+                          className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"
+                        >
+                          {runLoading ? "Running..." : "Run Code"}
+                        </button>
+                        <button
+                          onClick={handleRunTests}
+                          disabled={testLoading}
+                          className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {testLoading ? "Checking tests..." : "Run Tests"}
+                        </button>
+                        <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          {activeExercise?.tests_count ?? 0} tests configured
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Panel>
+              <ResizeHandle orientation="horizontal" />
+              <Panel defaultSize={40} minSize={35} className="overflow-hidden">
+                <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {outputTabs.map((tab) => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setOutputTab(tab.id)}
+                          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                            outputTab === tab.id
+                              ? "bg-sky-600 text-white"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={handleSubmitCode}
+                      disabled={!activeExercise}
+                      className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"
+                    >
+                      Submit Code
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    {outputTab === "console" ? (
+                      <pre className="h-full w-full overflow-y-auto bg-slate-950 p-4 font-mono text-xs text-emerald-200">
+                        {consoleOutput || "Run your code to see stdout and stderr here."}
+                      </pre>
+                    ) : null}
+                    {outputTab === "raw" ? (
+                      <pre className="h-full w-full overflow-y-auto bg-slate-900 p-4 font-mono text-xs text-slate-100">
+                        {consoleOutput || "No raw output yet. Run the code or tests to populate this panel."}
+                      </pre>
+                    ) : null}
+                    {outputTab === "custom" ? (
+                      <div className="flex h-full flex-col gap-3 overflow-y-auto p-4 text-sm text-slate-600 dark:text-slate-300">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" htmlFor="custom-input">
+                          Custom input
+                        </label>
+                        <textarea
+                          id="custom-input"
+                          value={customInput}
+                          onChange={(event) => setCustomInput(event.target.value)}
+                          className="h-24 rounded-lg border border-slate-200 bg-white p-2 font-mono text-xs text-slate-700 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                        />
+                        <button
+                          onClick={handleRunQuickTest}
+                          className="self-start rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-500"
+                        >
+                          Run quick test
+                        </button>
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 font-mono text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+                          {customOutput || "Results from quick tests will appear here."}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="border-t border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                      {testSectionTabs.map((tab) => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setTestSectionTab(tab.id)}
+                          className={`rounded-full px-3 py-1 ${
+                            testSectionTab === tab.id
+                              ? "bg-sky-600 text-white"
+                              : "bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800"
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex max-h-64 flex-col gap-4 overflow-y-auto p-4 text-sm text-slate-600 dark:text-slate-300">
+                      {testSectionTab === "tests" ? (
+                        testResults.length === 0 ? (
+                          <p>Run tests to see the detailed results.</p>
+                        ) : (
+                          testResults.map((result) => (
+                            <div
+                              key={result.id}
+                              className={`rounded-xl border p-4 ${
+                                result.passed
+                                  ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100"
+                                  : "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
+                                <span>{result.title}</span>
+                                <span>{result.passed ? "Pass" : "Fail"}</span>
+                              </div>
+                              <div className="mt-3 space-y-1 font-mono text-[11px]">
+                                {result.input ? (
+                                  <p>
+                                    <span className="font-semibold">Input:</span> {result.input}
+                                  </p>
+                                ) : null}
+                                <p>
+                                  <span className="font-semibold">Stdout:</span> {result.stdout || "(empty)"}
+                                </p>
+                                <p>
+                                  <span className="font-semibold">Stderr:</span> {result.stderr || "(empty)"}
+                                </p>
+                                {result.expected ? (
+                                  <p>
+                                    <span className="font-semibold">Expected:</span> {result.expected}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </div>
+                          ))
+                        )
+                      ) : null}
+                      {testSectionTab === "quick" ? (
+                        <div className="space-y-3">
+                          <p>Use the custom output tab above to provide input and run a quick check.</p>
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 font-mono text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+                            {customOutput || "No quick test run yet."}
+                          </div>
+                        </div>
+                      ) : null}
+                      {testSectionTab === "sandbox" ? (
+                        <div className="space-y-3">
+                          <p>Keep scratch notes or alternative approaches here while you iterate.</p>
+                          <textarea
+                            value={sandboxNotes}
+                            onChange={(event) => setSandboxNotes(event.target.value)}
+                            className="min-h-[96px] w-full rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                          />
+                          <button
+                            onClick={handleSandboxRun}
+                            className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900"
+                          >
+                            Log sandbox run
+                          </button>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">{sandboxNotes || "Nothing logged yet."}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                    {successMessage ? (
+                      <div className="border-t border-slate-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700 dark:border-slate-700 dark:bg-emerald-500/10 dark:text-emerald-200">
+                        {successMessage}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </Panel>
+            </PanelGroup>
+          </Panel>
+        </PanelGroup>
+      </div>
+    </div>
   );
-
 };
 
 export default CoursePage;
