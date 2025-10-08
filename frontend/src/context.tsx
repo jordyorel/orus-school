@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import api from "./api";
 
 export type User = {
@@ -43,33 +43,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     void bootstrap();
   }, [token]);
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     const { data } = await api.post<{ access_token: string }>("/auth/login", { email, password });
     localStorage.setItem("auth_token", data.access_token);
     setToken(data.access_token);
     const profile = await api.get<User>("/auth/me");
     setUser(profile.data);
-  };
+  }, []);
 
-  const register = async (name: string, email: string, password: string) => {
+  const register = useCallback(async (name: string, email: string, password: string) => {
     await api.post("/auth/register", { name, email, password });
     await login(email, password);
-  };
+  }, [login]);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem("auth_token");
     setToken(null);
     setUser(null);
-  };
+  }, []);
 
   const value = useMemo(
     () => ({ user, token, loading, login, register, logout }),
-    [user, token, loading]
+    [user, token, loading, login, register, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = (): AuthContextValue => {
   const context = useContext(AuthContext);
   if (!context) {

@@ -123,63 +123,6 @@ const readStoredLayout = (key: string, fallback: [number, number]): [number, num
   }
 };
 
-const persistLayout = (key: string, layout: [number, number]) => {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  try {
-    window.localStorage.setItem(key, JSON.stringify(layout));
-  } catch (error) {
-    console.warn(`Unable to persist layout for ${key}`, error);
-  }
-};
-
-const useDebouncedLayoutPersistence = (
-  key: string,
-  layout: [number, number],
-  delay = 200
-) => {
-  const latestLayoutRef = useRef(layout);
-  const timeoutRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    latestLayoutRef.current = layout;
-  }, [layout]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    if (timeoutRef.current !== null) {
-      window.clearTimeout(timeoutRef.current);
-    }
-
-    timeoutRef.current = window.setTimeout(() => {
-      persistLayout(key, latestLayoutRef.current);
-      timeoutRef.current = null;
-    }, delay);
-
-    return () => {
-      if (timeoutRef.current !== null) {
-        window.clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-    };
-  }, [key, delay, layout]);
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current !== null) {
-        window.clearTimeout(timeoutRef.current);
-        persistLayout(key, latestLayoutRef.current);
-        timeoutRef.current = null;
-      }
-    };
-  }, [key]);
-};
-
 const FullscreenIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -777,7 +720,7 @@ const CoursePage = () => {
   const [activeExerciseId, setActiveExerciseId] = useState<number | null>(null);
   const [editorValues, setEditorValues] = useState<EditorState>({});
   const [selectedLanguage, setSelectedLanguage] = useState<string>("python");
-  const [solutionTab, setSolutionTab] = useState<"solution1" | "solution2" | "solution3">("solution1");
+  const [solutionTab, setSolutionTab] = useState("solution1");
   const [consoleOutput, setConsoleOutput] = useState<string>("");
   const [outputTab, setOutputTab] = useState<"custom" | "raw">("custom");
   const [testResults, setTestResults] = useState<ConsoleResult[]>([]);
@@ -788,18 +731,20 @@ const CoursePage = () => {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [videoWatched, setVideoWatched] = useState(false);
   const [autosaveStatus, setAutosaveStatus] = useState<"idle" | "saving" | "saved">("idle");
-  const [hintStates, setHintStates] = useState<Record<number, boolean>>({});
+  const [hintStates, setHintStates] = useState<Record<string, boolean>>({});
   const [leftTab, setLeftTab] = useState<"overview" | "lesson" | "video" | "exercise">("lesson");
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     return localStorage.getItem("orus-course-theme") !== "light";
   });
   const [isEditorFullscreen, setIsEditorFullscreen] = useState(false);
-  const [workspaceLayout, setWorkspaceLayout] = useState<[number, number]>(() =>
-    readStoredLayout(WORKSPACE_LAYOUT_STORAGE_KEY, DEFAULT_WORKSPACE_LAYOUT)
+  const storedWorkspaceLayout = useMemo(
+    () => readStoredLayout(WORKSPACE_LAYOUT_STORAGE_KEY, DEFAULT_WORKSPACE_LAYOUT),
+    []
   );
-  const [playgroundLayout, setPlaygroundLayout] = useState<[number, number]>(() =>
-    readStoredLayout(PLAYGROUND_LAYOUT_STORAGE_KEY, DEFAULT_PLAYGROUND_LAYOUT)
+  const storedPlaygroundLayout = useMemo(
+    () => readStoredLayout(PLAYGROUND_LAYOUT_STORAGE_KEY, DEFAULT_PLAYGROUND_LAYOUT),
+    []
   );
   const [isCompactLayout, setIsCompactLayout] = useState<boolean>(() => {
     if (typeof window === "undefined") {
@@ -846,31 +791,6 @@ const CoursePage = () => {
     activeExerciseRef.current = activeExerciseId;
   }, [activeExerciseId]);
 
-  const handleWorkspaceLayoutChange = useCallback((sizes: number[]) => {
-    if (sizes.length !== 2) return;
-    const next: [number, number] = [sizes[0], sizes[1]];
-    setWorkspaceLayout((prev) => {
-      if (Math.abs(prev[0] - next[0]) < 0.1 && Math.abs(prev[1] - next[1]) < 0.1) {
-        return prev;
-      }
-      return next;
-    });
-  }, []);
-
-  const handlePlaygroundLayoutChange = useCallback((sizes: number[]) => {
-    if (sizes.length !== 2) return;
-    const next: [number, number] = [sizes[0], sizes[1]];
-    setPlaygroundLayout((prev) => {
-      if (Math.abs(prev[0] - next[0]) < 0.1 && Math.abs(prev[1] - next[1]) < 0.1) {
-        return prev;
-      }
-      return next;
-    });
-  }, []);
-
-  useDebouncedLayoutPersistence(WORKSPACE_LAYOUT_STORAGE_KEY, workspaceLayout);
-  useDebouncedLayoutPersistence(PLAYGROUND_LAYOUT_STORAGE_KEY, playgroundLayout);
-
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -901,7 +821,7 @@ const CoursePage = () => {
 
     setEditorValues((prev) => {
       const next: EditorState = { ...prev };
-      const solutionKeys: Array<typeof solutionTab> = ["solution1", "solution2", "solution3"];
+      const solutionKeys = ["solution1"] as const;
 
       data.lessons.forEach((lesson) => {
         lesson.exercises.forEach((exercise) => {
@@ -1163,7 +1083,7 @@ const CoursePage = () => {
     [testResults]
   );
 
-  const exerciseHints = useMemo(() => {
+  const exerciseHints = useMemo<string[]>(() => {
     if (!activeExercise) {
       return [];
     }
@@ -1216,12 +1136,6 @@ const CoursePage = () => {
   }, [nextExerciseCandidate, activeLesson, nextExerciseLesson]);
 
   const readyForNextLesson = videoWatched && testsPassed;
-
-  const solutionTabs = [
-    { id: "solution1" as const, label: "Solution 1" },
-    { id: "solution2" as const, label: "Solution 2" },
-    { id: "solution3" as const, label: "Solution 3" }
-  ];
 
   const leftTabs = [
     { id: "overview" as const, label: "Course Overview" },
@@ -1283,7 +1197,7 @@ const CoursePage = () => {
         <div className="flex w-full flex-col gap-6 text-sm text-slate-600 dark:text-slate-300">
           {leftTab === "overview" ? (
             <div className="space-y-6">
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">{courseData?.course.title}</h2>
                 <p className="text-slate-600 dark:text-slate-300">{courseData?.course.description}</p>
               </div>
@@ -1297,9 +1211,9 @@ const CoursePage = () => {
                   </span>
                 </div>
                 <ProgressBar
-                  percentage={courseData?.course_progress.completion_percentage ?? 0}
+                  value={courseData?.course_progress.completion_percentage ?? 0}
                   size="lg"
-                  showLabel
+                  label="Completion"
                 />
                 <div className="grid gap-3 rounded-xl bg-slate-50 p-4 text-xs font-medium uppercase tracking-wide text-slate-500 dark:bg-white/5 dark:text-slate-400">
                   <div className="flex items-center justify-between">
@@ -1350,7 +1264,7 @@ const CoursePage = () => {
                   </div>
                 ) : null}
               </div>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500 dark:text-slate-400">
                   Exercises in this lesson
                 </h3>
@@ -1380,7 +1294,7 @@ const CoursePage = () => {
           ) : null}
           {leftTab === "video" ? (
             <div className="space-y-6">
-              <div className="space-y-3">
+              <div className="space-y-1.5">
                 <p className="text-xs font-semibold uppercase tracking-wide text-sky-500">Video</p>
                 <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">
                   {activeLesson ? activeLesson.title : "Select a lesson"}
@@ -1393,6 +1307,7 @@ const CoursePage = () => {
                 {activeLesson ? (
                   <VideoPlayer
                     url={activeLesson.video_url}
+                    title={activeLesson.title}
                     onWatched={() => setVideoWatched(true)}
                     watched={videoWatched}
                   />
@@ -1439,7 +1354,7 @@ const CoursePage = () => {
                         Helpful hints
                       </h3>
                       <div className="space-y-2">
-                        {(exerciseHints[activeExercise.id] ?? []).map((hint, index) => {
+                        {exerciseHints.map((hint, index) => {
                           const hintId = `${activeExercise.id}-${index}`;
                           const isOpen = hintStates[hintId] ?? false;
                           return (
@@ -1486,7 +1401,7 @@ const CoursePage = () => {
               {readyForNextLesson ? "Ready for next lesson" : "Keep going"}
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={handleMarkLessonComplete}
               disabled={!activeLesson || lessonMarkLoading}
@@ -1514,66 +1429,56 @@ const CoursePage = () => {
         isCompactLayout ? "h-auto border-t border-slate-200/70 dark:border-slate-800/60" : "h-full"
       }`}
     >
-      <div className="border-b border-white/10 bg-[#0d1b33] px-6 py-5">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-sky-400">
-              Your Solutions
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {solutionTabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setSolutionTab(tab.id)}
-                  className={`rounded-md px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
-                    solutionTab === tab.id
-                      ? "bg-sky-500 text-white shadow"
-                      : "bg-white/5 text-slate-300 hover:bg-white/10"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-            <p className="text-sm text-slate-400">
-              {activeExercise ? activeExercise.title : "Select an exercise to begin."}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <IconButton onClick={() => setIsEditorFullscreen(true)} label="Open fullscreen">
-              <FullscreenIcon className="h-5 w-5" />
-            </IconButton>
-            <IconButton
-              onClick={handleRunTests}
-              label={testLoading ? "Running tests..." : "Run tests"}
-              disabled={testLoading}
-            >
-              <RefreshIcon className={`h-5 w-5 ${testLoading ? "animate-spin" : ""}`} />
-            </IconButton>
-            <button
-              onClick={handleRunCode}
-              disabled={runLoading}
-              className="inline-flex items-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {runLoading ? "Running..." : "Run Code"}
-            </button>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[#0d1b33] px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          <span className="font-semibold uppercase tracking-[0.28em] text-sky-400">Your Solution</span>
+          <button
+            onClick={() => setSolutionTab("solution1")}
+            className={`rounded-full px-3 py-1 text-[11px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 ${
+              solutionTab === "solution1"
+                ? "bg-sky-500 text-slate-900 shadow-[0_6px_16px_rgba(14,116,224,0.35)]"
+                : "bg-white/10 text-slate-200 hover:bg-white/15"
+            }`}
+          >
+            Your Solution
+          </button>
+          <span className="text-slate-300">
+            {activeExercise ? activeExercise.title : "Select an exercise to begin."}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <IconButton onClick={() => setIsEditorFullscreen(true)} label="Open fullscreen">
+            <FullscreenIcon className="h-4 w-4" />
+          </IconButton>
+          <IconButton
+            onClick={handleRunTests}
+            label={testLoading ? "Running tests..." : "Run tests"}
+            disabled={testLoading}
+          >
+            <RefreshIcon className={`h-4 w-4 ${testLoading ? "animate-spin" : ""}`} />
+          </IconButton>
+          <button
+            onClick={handleRunCode}
+            disabled={runLoading}
+            className="inline-flex items-center gap-1.5 rounded-md bg-sky-500 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {runLoading ? "Running..." : "Run Code"}
+          </button>
         </div>
       </div>
-      <div className="flex flex-1 min-h-0 flex-col px-6 py-6">
+      <div className="flex flex-1 min-h-0 flex-col px-5 py-4">
         <PanelGroup
           direction="vertical"
-          layout={playgroundLayout}
-          onLayout={handlePlaygroundLayoutChange}
+          autoSaveId={PLAYGROUND_LAYOUT_STORAGE_KEY}
           className="flex h-full flex-1 flex-col gap-4"
         >
           <Panel
-            defaultSize={playgroundLayout[0] ?? DEFAULT_PLAYGROUND_LAYOUT[0]}
+            defaultSize={storedPlaygroundLayout[0] ?? DEFAULT_PLAYGROUND_LAYOUT[0]}
             minSize={15}
             maxSize={100}
             collapsible
             collapsedSize={0}
-            className="min-h-[200px] overflow-hidden rounded-2xl border border-white/10 bg-[#050d1c] shadow-[0_0_0_1px_rgba(15,23,42,0.4)]"
+            className="min-h-[200px] overflow-hidden border border-white/10 bg-[#050d1c] shadow-[0_0_0_1px_rgba(15,23,42,0.4)]"
           >
             <div className="flex h-full min-h-0">
               {!isEditorFullscreen ? (
@@ -1596,12 +1501,12 @@ const CoursePage = () => {
           </Panel>
           <ResizeHandle orientation="horizontal" />
           <Panel
-            defaultSize={playgroundLayout[1] ?? DEFAULT_PLAYGROUND_LAYOUT[1]}
+            defaultSize={storedPlaygroundLayout[1] ?? DEFAULT_PLAYGROUND_LAYOUT[1]}
             minSize={15}
             maxSize={100}
             collapsible
             collapsedSize={0}
-            className="flex min-h-[160px] flex-col rounded-2xl border border-white/10 bg-[#0f1b33] p-5"
+            className="flex min-h-[160px] flex-col border border-white/10 bg-[#0f1b33] p-5"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -1627,7 +1532,7 @@ const CoursePage = () => {
                 Submit Code
               </button>
             </div>
-            <div className="mt-4 flex-1 overflow-hidden rounded-lg border border-white/10 bg-[#050d1c] p-4">
+            <div className="mt-4 flex-1 overflow-hidden border border-white/10 bg-[#050d1c] p-4">
               {outputTab === "custom" ? (
                 <pre className="h-full w-full overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-200">
                   {consoleOutput || "Run or submit code when you're ready."}
@@ -1787,7 +1692,7 @@ const CoursePage = () => {
     [courseRouteBase, isWorkspaceRoute, lessonIdFromParam, lessons, navigate]
   );
 
-  const handleExerciseChange = (exerciseId: number) => {
+  const handleExerciseChange = useCallback((exerciseId: number) => {
     setSuccessMessage(null);
     setConsoleOutput("");
     setTestResults([]);
@@ -1808,7 +1713,20 @@ const CoursePage = () => {
         setSelectedLanguage(exercise.default_language ?? "python");
       }
     }
-  };
+  }, [exercises]);
+
+  const handleExerciseSelect = useCallback(
+    (lessonId: number, exerciseId: number) => {
+      if (activeLessonId !== lessonId) {
+        handleLessonSelect(lessonId, { updateUrl: false });
+      }
+      handleExerciseChange(exerciseId);
+      if (isWorkspaceRoute) {
+        navigate(`${courseRouteBase}/lesson/${lessonId}`);
+      }
+    },
+    [activeLessonId, courseRouteBase, handleExerciseChange, handleLessonSelect, isWorkspaceRoute, navigate]
+  );
 
   useEffect(() => {
     if (!isWorkspaceRoute) return;
@@ -2149,11 +2067,6 @@ const CoursePage = () => {
           </div>
         </nav>
       ) : null}
-      {isDemoMode ? (
-        <div className={`${isWorkspaceRoute ? "px-8" : "px-6"} flex-none border-b border-amber-200/70 bg-amber-50/80 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100`}>
-          You are exploring the interactive playground with sample data. Sign in to access your real courses and save progress.
-        </div>
-      ) : null}
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {isCompactLayout ? (
           <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
@@ -2167,12 +2080,11 @@ const CoursePage = () => {
         ) : (
           <PanelGroup
             direction="horizontal"
-            layout={workspaceLayout}
-            onLayout={handleWorkspaceLayoutChange}
+            autoSaveId={WORKSPACE_LAYOUT_STORAGE_KEY}
             className="flex h-full w-full min-h-0 min-w-0 gap-0"
           >
             <Panel
-              defaultSize={workspaceLayout[0] ?? DEFAULT_WORKSPACE_LAYOUT[0]}
+              defaultSize={storedWorkspaceLayout[0] ?? DEFAULT_WORKSPACE_LAYOUT[0]}
               minSize={20}
               maxSize={100}
               collapsible
@@ -2183,7 +2095,7 @@ const CoursePage = () => {
             </Panel>
             <ResizeHandle orientation="vertical" />
             <Panel
-              defaultSize={workspaceLayout[1] ?? DEFAULT_WORKSPACE_LAYOUT[1]}
+              defaultSize={storedWorkspaceLayout[1] ?? DEFAULT_WORKSPACE_LAYOUT[1]}
               minSize={20}
               maxSize={100}
               collapsible

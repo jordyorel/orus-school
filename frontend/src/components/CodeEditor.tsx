@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 
 export type CodeEditorProps = {
   language: string;
@@ -67,6 +67,8 @@ const CodeEditor = ({
   const [monacoModule, setMonacoModule] = useState<MonacoEditorModule | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const editorLanguage = useMemo(() => language.toLowerCase(), [language]);
+  const monacoRef = useRef<Monaco | null>(null);
+  const themesRegisteredRef = useRef(false);
   const resolvedHeight = useMemo(() => {
     if (typeof height === "number") {
       return `${height}px`;
@@ -92,6 +94,51 @@ const CodeEditor = ({
   }, []);
 
   const handleBeforeMount = (monaco: Monaco) => {
+    monacoRef.current = monaco;
+    if (!themesRegisteredRef.current) {
+      monaco.editor.defineTheme("orus-dark", {
+        base: "vs-dark",
+        inherit: true,
+        rules: [
+          { token: "", foreground: "E2E8F0" },
+          { token: "comment", foreground: "8B9CB8" },
+          { token: "keyword", foreground: "7DD3FC" },
+          { token: "string", foreground: "BBF7D0" }
+        ],
+        colors: {
+          "editor.background": "#081229",
+          "editor.foreground": "#e2e8f0",
+          "editorCursor.foreground": "#60a5fa",
+          "editorLineNumber.foreground": "#94a3b8",
+          "editorLineNumber.activeForeground": "#f8fafc",
+          "editor.selectionBackground": "#1e3a8a66",
+          "editor.lineHighlightBackground": "#10213f",
+          "editor.lineHighlightBorder": "#233860"
+        }
+      });
+      monaco.editor.defineTheme("orus-light", {
+        base: "vs",
+        inherit: true,
+        rules: [
+          { token: "", foreground: "1E293B" },
+          { token: "comment", foreground: "94A3B8" },
+          { token: "keyword", foreground: "2563EB" },
+          { token: "string", foreground: "0284C7" }
+        ],
+        colors: {
+          "editor.background": "#ffffff",
+          "editor.foreground": "#0f172a",
+          "editorCursor.foreground": "#1f2937",
+          "editorLineNumber.foreground": "#94a3b8",
+          "editorLineNumber.activeForeground": "#1f2937",
+          "editor.selectionBackground": "#bfdbfe90",
+          "editor.lineHighlightBackground": "#e2e8f0",
+          "editor.lineHighlightBorder": "#cbd5f5"
+        }
+      });
+      themesRegisteredRef.current = true;
+    }
+    monaco.editor.setTheme(theme === "dark" ? "orus-dark" : "orus-light");
     monaco.languages.typescript.typescriptDefaults.setEagerModelSync(true);
     monaco.languages.typescript.javascriptDefaults.setEagerModelSync(true);
   };
@@ -118,6 +165,7 @@ const CodeEditor = ({
           value={code}
           onChange={(event) => onChange(event.target.value)}
           spellCheck={false}
+          style={{ caretColor: theme === "dark" ? "#38bdf8" : "#0f172a" }}
         />
         {loadFailed ? (
           <p className={fallbackNoticeClassName}>
@@ -137,7 +185,7 @@ const CodeEditor = ({
         defaultLanguage={editorLanguage}
         language={editorLanguage}
         value={code}
-        theme={theme === "dark" ? "vs-dark" : "vs-light"}
+        theme={theme === "dark" ? "orus-dark" : "orus-light"}
         onChange={(value) => onChange(value ?? "")}
         options={{
           minimap: { enabled: false },
