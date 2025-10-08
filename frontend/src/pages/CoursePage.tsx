@@ -169,7 +169,7 @@ const IconButton = ({
     disabled={disabled}
     aria-label={label}
     title={label}
-    className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-100 transition hover:-translate-y-0.5 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+    className="inline-flex h-10 w-10 items-center justify-center rounded-lg shadow-[inset_0_0_0_1px_rgba(15,23,42,0.8)] border border-[#152842] bg-white/5 text-slate-100 transition hover:-translate-y-0.5 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-sky-500/40 disabled:cursor-not-allowed disabled:opacity-60"
   >
     {children}
     <span className="sr-only">{label}</span>
@@ -1167,13 +1167,11 @@ const CoursePage = () => {
 
   const CourseTabsPanelContent = () => (
     <div
-      className={`flex min-h-0 min-w-0 flex-col overflow-hidden bg-white dark:bg-slate-900 ${
-        isCompactLayout
-          ? "h-auto border-b border-slate-200/70 dark:border-slate-800/60"
-          : "h-full border-r border-slate-200/70 dark:border-slate-800/60"
+      className={`flex min-h-0 min-w-0 flex-col overflow-hidden bg-transparent ${
+        isCompactLayout ? "h-auto" : "h-full"
       }`}
     >
-      <div className="flex items-center gap-6 border-b border-slate-200/70 px-6 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400">
+      <div className="flex items-center gap-4 border-b border-[#152842] bg-[#0d1b33] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
         {leftTabs.map((tab) => (
           <button
             key={tab.id}
@@ -1193,7 +1191,7 @@ const CoursePage = () => {
           </button>
         ))}
       </div>
-      <div className="flex flex-1 min-h-0 overflow-y-auto p-6">
+      <div className="flex flex-1 min-h-0 overflow-y-auto p-3">
         <div className="flex w-full flex-col gap-6 text-sm text-slate-600 dark:text-slate-300">
           {leftTab === "overview" ? (
             <div className="space-y-6">
@@ -1389,7 +1387,7 @@ const CoursePage = () => {
           ) : null}
         </div>
       </div>
-      <div className="border-t border-slate-200/70 bg-slate-50/70 px-6 py-4 text-xs font-semibold uppercase tracking-[0.35em] text-slate-500 dark:border-slate-800/60 dark:bg-slate-900/70 dark:text-slate-400">
+      <div className="border-t border-slate-200/70 bg-slate-50/70 px-4 py-3 text-xs font-semibold uppercase tracking-[0.35em] text-slate-500 dark:border-slate-800/60 dark:bg-slate-900/70 dark:text-slate-400">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-xs">
             <span className="rounded-full bg-sky-100 px-2 py-1 text-sky-600 dark:bg-sky-500/20 dark:text-sky-300">
@@ -1425,19 +1423,19 @@ const CoursePage = () => {
 
   const PlaygroundPanelContent = () => (
     <div
-      className={`flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#081024] text-slate-100 ${
-        isCompactLayout ? "h-auto border-t border-slate-200/70 dark:border-slate-800/60" : "h-full"
+      className={`flex min-h-0 min-w-0 flex-col overflow-hidden bg-transparent text-slate-100 ${
+        isCompactLayout ? "h-auto" : "h-full"
       }`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[#0d1b33] px-4 py-2">
-        <div className="flex flex-wrap items-center gap-2 text-[11px]">
-          <span className="font-semibold uppercase tracking-[0.28em] text-sky-400">Your Solution</span>
+      <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-[#152842] bg-gradient-to-r from-[#0a162b] via-[#10223d] to-[#0a162b] px-2.5 py-1.5">
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.25em] text-white">
+          <span className="rounded-l-md bg-[#031025] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.25em] text-white">Your Solution</span>
           <button
             onClick={() => setSolutionTab("solution1")}
-            className={`rounded-full px-3 py-1 text-[11px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 ${
+            className={`rounded-none px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40 ${
               solutionTab === "solution1"
-                ? "bg-sky-500 text-slate-900 shadow-[0_6px_16px_rgba(14,116,224,0.35)]"
-                : "bg-white/10 text-slate-200 hover:bg-white/15"
+                ? "bg-[#17365c] text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.25)]"
+                : "bg-[#10223d] text-slate-200 hover:bg-[#163050]"
             }`}
           >
             Your Solution
@@ -1446,7 +1444,7 @@ const CoursePage = () => {
             {activeExercise ? activeExercise.title : "Select an exercise to begin."}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <IconButton onClick={() => setIsEditorFullscreen(true)} label="Open fullscreen">
             <FullscreenIcon className="h-4 w-4" />
           </IconButton>
@@ -1460,17 +1458,17 @@ const CoursePage = () => {
           <button
             onClick={handleRunCode}
             disabled={runLoading}
-            className="inline-flex items-center gap-1.5 rounded-md bg-sky-500 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-1 rounded-r-md bg-[#2463eb] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.25)] transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {runLoading ? "Running..." : "Run Code"}
           </button>
         </div>
       </div>
-      <div className="flex flex-1 min-h-0 flex-col px-5 py-4">
+      <div className="flex flex-1 min-h-0 flex-col px-3 py-2.5">
         <PanelGroup
           direction="vertical"
           autoSaveId={PLAYGROUND_LAYOUT_STORAGE_KEY}
-          className="flex h-full flex-1 flex-col gap-4"
+          className="flex h-full flex-1 flex-col gap-4 p-3"
         >
           <Panel
             defaultSize={storedPlaygroundLayout[0] ?? DEFAULT_PLAYGROUND_LAYOUT[0]}
@@ -1506,7 +1504,7 @@ const CoursePage = () => {
             maxSize={100}
             collapsible
             collapsedSize={0}
-            className="flex min-h-[160px] flex-col border border-white/10 bg-[#0f1b33] p-5"
+            className="flex min-h-[160px] flex-col border border-white/10 bg-[#0f1b33] p-3"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -1532,7 +1530,7 @@ const CoursePage = () => {
                 Submit Code
               </button>
             </div>
-            <div className="mt-4 flex-1 overflow-hidden border border-white/10 bg-[#050d1c] p-4">
+            <div className="mt-3 flex-1 overflow-hidden border border-white/10 bg-[#050d1c] p-3">
               {outputTab === "custom" ? (
                 <pre className="h-full w-full overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-200">
                   {consoleOutput || "Run or submit code when you're ready."}
@@ -2067,7 +2065,8 @@ const CoursePage = () => {
           </div>
         </nav>
       ) : null}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="h-3 bg-[#050d1c]" />
+      <div className="flex flex-1 min-h-0 overflow-hidden px-3 pb-3">
         {isCompactLayout ? (
           <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
             <div className="flex-none min-h-0 overflow-hidden">
@@ -2091,7 +2090,9 @@ const CoursePage = () => {
               collapsedSize={5}
               className="min-h-0 min-w-0 overflow-hidden"
             >
-              <CourseTabsPanelContent />
+              <div className="flex h-full w-full flex-col rounded-md border border-[#152842] bg-[#0f202d] shadow-[inset_0_0_0_1px_rgba(15,23,42,0.6)]">
+                <CourseTabsPanelContent />
+              </div>
             </Panel>
             <ResizeHandle orientation="vertical" />
             <Panel
@@ -2102,7 +2103,9 @@ const CoursePage = () => {
               collapsedSize={5}
               className="min-h-0 min-w-0 overflow-hidden"
             >
-              <PlaygroundPanelContent />
+              <div className="flex h-full w-full flex-col rounded-md border border-[#152842] bg-[#0f202d] shadow-[inset_0_0_0_1px_rgba(15,23,42,0.6)]">
+                <PlaygroundPanelContent />
+              </div>
             </Panel>
           </PanelGroup>
         )}
