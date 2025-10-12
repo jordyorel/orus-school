@@ -84,6 +84,26 @@ def create_course(payload: schemas.CourseCreate, db: Session = Depends(get_db), 
     return course
 
 
+@course_router.patch("/{course_id}", response_model=schemas.Course)
+def update_course(
+    course_id: int,
+    payload: schemas.CourseUpdate,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_admin),
+):
+    course = db.get(models.Course, course_id)
+    if course is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+
+    update_data = payload.model_dump(exclude_unset=True)
+    for field_name, value in update_data.items():
+        setattr(course, field_name, value)
+
+    db.commit()
+    db.refresh(course)
+    return course
+
+
 @course_router.delete("/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_course(course_id: int, db: Session = Depends(get_db), _: models.User = Depends(require_admin)):
     course = db.get(models.Course, course_id)
