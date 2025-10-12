@@ -12,14 +12,22 @@ const initialLessonForm = {
 
 const AdminPage = () => {
   const [courses, setCourses] = useState<Course[]>([]);
-  const [lessonForm, setLessonForm] = useState(initialLessonForm);
-  const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [lessonFeedback, setLessonFeedback] = useState<string | null>(null);
-  const [lessonError, setLessonError] = useState<string | null>(null);
-  const [lessons, setLessons] = useState<LessonDetail[]>([]);
-  const [lessonsLoading, setLessonsLoading] = useState(false);
-  const [editingLessonId, setEditingLessonId] = useState<number | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [courseForm, setCourseForm] = useState<CourseForm>(emptyCourseForm);
+  const [savingCourse, setSavingCourse] = useState(false);
+  const [feedbackDrafts, setFeedbackDrafts] = useState<Record<number, string>>({});
+  const [deletingCourseId, setDeletingCourseId] = useState<number | null>(null);
+
+  const loadData = async () => {
+    const [{ data: userList }, { data: courseList }, { data: projectList }] = await Promise.all([
+      api.get<User[]>("/users"),
+      api.get<Course[]>("/courses"),
+      api.get<Project[]>("/projects"),
+    ]);
+    setStudents(userList.filter((item) => item.id !== user?.id));
+    setCourses(courseList);
+    setProjects(projectList);
+  };
 
   const [courseForm, setCourseForm] = useState({
     title: "",
@@ -202,6 +210,23 @@ const AdminPage = () => {
       setCourseError("Unable to create course. Please check the details and try again.");
     } finally {
       setCourseSubmitting(false);
+    }
+  };
+
+  const handleCourseDelete = async (courseId: number) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this course? This will remove all related lessons and progress.",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingCourseId(courseId);
+    try {
+      await api.delete(`/courses/${courseId}`);
+      setCourses((prev) => prev.filter((course) => course.id !== courseId));
+    } finally {
+      setDeletingCourseId(null);
     }
   };
 
@@ -572,11 +597,47 @@ const AdminPage = () => {
             </button>
           </div>
 
-          {lessonFeedback ? (
-            <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-600 dark:border-emerald-400/40 dark:text-emerald-300">
-              {lessonFeedback}
-            </div>
-          ) : null}
+      <section className="rounded-2xl bg-white p-6 shadow">
+        <h2 className="text-xl font-semibold text-slate-900">Existing curriculum</h2>
+        <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Title</th>
+                <th className="px-4 py-3">Year</th>
+                <th className="px-4 py-3">Order</th>
+                <th className="px-4 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {courses.map((course) => (
+                <tr key={course.id}>
+                  <td className="px-4 py-3 font-medium text-slate-800">{course.title}</td>
+                  <td className="px-4 py-3">Year {course.year}</td>
+                  <td className="px-4 py-3">{course.order_index + 1}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => void handleCourseDelete(course.id)}
+                      disabled={deletingCourseId === course.id}
+                      className="rounded-md border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {deletingCourseId === course.id ? "Deleting..." : "Delete"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {courses.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-4 text-sm text-slate-500" colSpan={4}>
+                    No courses yet. Use the form above to add your first module.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
           {lessonError ? (
             <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-600 dark:border-rose-400/40 dark:text-rose-300">
