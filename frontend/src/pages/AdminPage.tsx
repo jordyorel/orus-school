@@ -48,6 +48,7 @@ const AdminPage = () => {
   const [courseForm, setCourseForm] = useState<CourseForm>(emptyCourseForm);
   const [savingCourse, setSavingCourse] = useState(false);
   const [feedbackDrafts, setFeedbackDrafts] = useState<Record<number, string>>({});
+  const [deletingCourseId, setDeletingCourseId] = useState<number | null>(null);
 
   const loadData = async () => {
     const [{ data: userList }, { data: courseList }, { data: projectList }] = await Promise.all([
@@ -97,6 +98,23 @@ const AdminPage = () => {
       await loadData();
     } finally {
       setSavingCourse(false);
+    }
+  };
+
+  const handleCourseDelete = async (courseId: number) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this course? This will remove all related lessons and progress.",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingCourseId(courseId);
+    try {
+      await api.delete(`/courses/${courseId}`);
+      setCourses((prev) => prev.filter((course) => course.id !== courseId));
+    } finally {
+      setDeletingCourseId(null);
     }
   };
 
@@ -178,6 +196,7 @@ const AdminPage = () => {
                 <th className="px-4 py-3">Title</th>
                 <th className="px-4 py-3">Year</th>
                 <th className="px-4 py-3">Order</th>
+                <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
@@ -186,11 +205,21 @@ const AdminPage = () => {
                   <td className="px-4 py-3 font-medium text-slate-800">{course.title}</td>
                   <td className="px-4 py-3">Year {course.year}</td>
                   <td className="px-4 py-3">{course.order_index + 1}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => void handleCourseDelete(course.id)}
+                      disabled={deletingCourseId === course.id}
+                      className="rounded-md border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {deletingCourseId === course.id ? "Deleting..." : "Delete"}
+                    </button>
+                  </td>
                 </tr>
               ))}
               {courses.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-4 text-sm text-slate-500" colSpan={3}>
+                  <td className="px-4 py-4 text-sm text-slate-500" colSpan={4}>
                     No courses yet. Use the form above to add your first module.
                   </td>
                 </tr>
