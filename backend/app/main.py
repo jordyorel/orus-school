@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .database import Base, engine
 from .routes import (
     auth_router,
+    admin_router,
     course_router,
     execution_router,
     learning_router,
@@ -11,6 +12,7 @@ from .routes import (
     progress_router,
     project_router,
     user_router,
+    video_router,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -33,6 +35,8 @@ app.include_router(progress_router)
 app.include_router(user_router)
 app.include_router(execution_router)
 app.include_router(learning_router)
+app.include_router(admin_router)
+app.include_router(video_router)
 
 
 @app.get("/health")

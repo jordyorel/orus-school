@@ -1,69 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { isAxiosError } from "axios";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import api from "../api";
+import api, { fetchLesson, fetchNextLesson } from "../api";
 import CodeEditor from "../components/CodeEditor";
 import CourseSidebar, { CurriculumSection, LessonStatus } from "../components/CourseSidebar";
 import ProgressBar from "../components/ProgressBar";
 import VideoPlayer from "../components/VideoPlayer";
 import { useAuth } from "../context";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-
-export type Course = {
-  id: number;
-  title: string;
-  description: string;
-  year: number;
-  order_index: number;
-};
-
-export type LessonDetail = {
-  id: number;
-  course_id: number;
-  title: string;
-  description: string;
-  video_url: string;
-  notes: string;
-  order_index: number;
-  progress?: {
-    completed: boolean;
-    completed_at?: string;
-  } | null;
-  exercises: ExerciseDetail[];
-};
-
-export type ExerciseDetail = {
-  id: number;
-  lesson_id: number;
-  title: string;
-  instructions: string;
-  starter_code: Record<string, string>;
-  default_language: string;
-  order_index: number;
-  tests_count: number;
-  progress?: {
-    status: string;
-    completed_at?: string;
-    last_run_output?: string;
-    last_error?: string;
-    last_language?: string;
-  } | null;
-};
-
-export type CourseProgressSummary = {
-  course: Course;
-  status: "completed" | "in_progress";
-  completion_percentage: number;
-  lessons_completed: number;
-  lessons_total: number;
-  exercises_completed: number;
-  exercises_total: number;
-};
-
-export type CourseLessonsResponse = {
-  course: Course;
-  lessons: LessonDetail[];
-  course_progress: CourseProgressSummary;
-};
+import { CourseLessonsResponse, ExerciseDetail, LessonDetail } from "../types/course";
+import { computeProgressFromLessons } from "../utils/courseProgress";
+import { yearOneCourses, defaultYearOneCourseSlug } from "../data/yearOne";
 
 const EMPTY_EXERCISES: ExerciseDetail[] = [];
 
@@ -176,281 +123,6 @@ const IconButton = ({
   </button>
 );
 
-const demoCourse: Course = {
-  id: 0,
-  title: "C Basics: Pointers & Memory",
-  description:
-    "Master fundamental pointer skills, visualise memory, and build the core string utilities required for the Year 1 libft project.",
-  year: 1,
-  order_index: 1
-};
-
-const demoLessons: LessonDetail[] = [
-  {
-    id: 101,
-    course_id: demoCourse.id,
-    title: "Variables & Types",
-    description: "Track how primitive values are stored in memory and practice reading diagrams.",
-    video_url: "https://youtu.be/5ByDKD9-rE4",
-    notes: `
-      <h3>Variables &amp; Types</h3>
-      <p>In C every variable maps to a region of memory. Understanding how bytes are laid out allows you to debug crashes and undefined behaviour.</p>
-      <ul>
-        <li>Each type (<code>char</code>, <code>int</code>, <code>float</code>) has a specific size.</li>
-        <li>Variables are stored at an address that can be inspected with the <code>&amp;</code> operator.</li>
-        <li>Strings are just arrays of characters terminated by <code>\0</code>.</li>
-      </ul>
-      <pre><code class="language-c">int age = 19;
-printf("Age: %d\n", age);
-printf("Address: %p\n", (void *)&age);
-</code></pre>
-      <p class="mt-4">Keep mental models of the stack vs. the heap so you know where ownership lives.</p>
-    `,
-    order_index: 1,
-    progress: {
-      completed: false
-    },
-    exercises: [
-      {
-        id: 1001,
-        lesson_id: 101,
-        title: "Implement strlen()",
-        instructions: `
-          <h4>Exercise: Implement <code>ft_strlen</code></h4>
-          <p>Write a function that returns the length of a C string. Follow the spec closely:</p>
-          <ul>
-            <li>Accept a null-terminated <code>const char *</code>.</li>
-            <li>Count characters until <code>\0</code> is reached.</li>
-            <li>Return the number of characters as a <code>size_t</code>.</li>
-          </ul>
-          <p class="mt-2"><strong>Example:</strong> <code>ft_strlen("hello") == 5</code></p>
-        `,
-        starter_code: {
-          c: `#include <stddef.h>
-
-size_t  ft_strlen(const char *str)
-{
-    size_t length;
-
-    (void)str;
-    length = 0;
-    // TODO: walk through the string until you hit the null terminator
-    return length;
-}
-`
-        },
-        default_language: "c",
-        order_index: 1,
-        tests_count: 3,
-        progress: null
-      }
-    ]
-  },
-  {
-    id: 102,
-    course_id: demoCourse.id,
-    title: "Loops & Functions",
-    description: "Use loops to traverse arrays and return values from helpers you can test.",
-    video_url: "https://www.youtube.com/embed/8lXdyD2Yzls",
-    notes: `
-      <h3>Loops &amp; Functions</h3>
-      <p>Pure functions are easier to test and reason about. Extract logic into helpers so your main program remains readable.</p>
-      <ul>
-        <li>Prefer <code>while</code> loops for pointer traversal in C basics.</li>
-        <li>Return early when you detect invalid input.</li>
-        <li>Document pre-conditions in a block comment.</li>
-      </ul>
-      <pre><code class="language-c">int sum_until_zero(const int *numbers)
-{
-    int total = 0;
-    while (*numbers != 0)
-    {
-        total += *numbers;
-        numbers++;
-    }
-    return total;
-}
-</code></pre>
-    `,
-    order_index: 2,
-    progress: null,
-    exercises: [
-      {
-        id: 1002,
-        lesson_id: 102,
-        title: "Implement strcpy()",
-        instructions: `
-          <h4>Exercise: Implement <code>ft_strcpy</code></h4>
-          <p>Duplicate the behaviour of the standard library <code>strcpy</code> function.</p>
-          <ol>
-            <li>Copy characters from <code>src</code> into <code>dest</code>, including the terminating <code>\0</code>.</li>
-            <li>Return the <code>dest</code> pointer.</li>
-            <li>Assume <code>dest</code> has enough space.</li>
-          </ol>
-          <p class="mt-2"><strong>Example:</strong> <code>ft_strcpy(buf, "42")</code> stores <code>"42"</code> in <code>buf</code>.</p>
-        `,
-        starter_code: {
-          c: `char    *ft_strcpy(char *dest, const char *src)
-{
-    (void)dest;
-    (void)src;
-    // TODO: copy characters until the null terminator and then return dest
-    return dest;
-}
-`
-        },
-        default_language: "c",
-        order_index: 1,
-        tests_count: 3,
-        progress: null
-      }
-    ]
-  },
-  {
-    id: 103,
-    course_id: demoCourse.id,
-    title: "Pointers",
-    description: "Trace pointer diagrams, dereference safely, and avoid undefined behaviour.",
-    video_url: "https://www.youtube.com/embed/zuegQmMdy8M",
-    notes: `
-      <h3>Pointers in C</h3>
-      <p>Pointers store memory addresses. Dereferencing the pointer lets you access or mutate the data stored at that location.</p>
-      <ul>
-        <li>Always initialise pointers before dereferencing.</li>
-        <li>Use <code>const</code> when you only need to read through a pointer.</li>
-        <li>Draw diagrams: boxes for values, arrows for addresses.</li>
-      </ul>
-      <pre><code class="language-c">int value = 10;
-int *ptr = &value;
-printf("%d\n", *ptr); // prints 10
-</code></pre>
-    `,
-    order_index: 3,
-    progress: null,
-    exercises: [
-      {
-        id: 1003,
-        lesson_id: 103,
-        title: "Implement strcmp()",
-        instructions: `
-          <h4>Exercise: Implement <code>ft_strcmp</code></h4>
-          <p>Return 0 when strings match, a negative value when <code>s1</code> is less than <code>s2</code>, and positive otherwise.</p>
-          <ul>
-            <li>Iterate both strings together.</li>
-            <li>Stop when characters differ or you reach <code>\0</code>.</li>
-            <li>Cast to <code>unsigned char</code> before subtracting to avoid overflow.</li>
-          </ul>
-        `,
-        starter_code: {
-          c: `int ft_strcmp(const char *s1, const char *s2)
-{
-    (void)s1;
-    (void)s2;
-    // TODO: compare characters and return the first difference
-    return 0;
-}
-`
-        },
-        default_language: "c",
-        order_index: 1,
-        tests_count: 3,
-        progress: null
-      }
-    ]
-  },
-  {
-    id: 104,
-    course_id: demoCourse.id,
-    title: "Memory Management",
-    description: "Allocate, zero, and free dynamic memory responsibly.",
-    video_url: "https://www.youtube.com/embed/_8-ht2AKyH4",
-    notes: `
-      <h3>Memory Management</h3>
-      <p>Dynamic allocation lets you create buffers sized at runtime. Balance every <code>malloc</code> with a matching <code>free</code>.</p>
-      <ol>
-        <li>Use <code>calloc</code> when you need zeroed memory.</li>
-        <li>Check for allocation failures before using the pointer.</li>
-        <li>Encapsulate allocation and cleanup in helpers for clarity.</li>
-      </ol>
-      <pre><code class="language-c">int *numbers = malloc(sizeof(int) * count);
-if (!numbers)
-    return NULL;
-/* ... */
-free(numbers);
-</code></pre>
-    `,
-    order_index: 4,
-    progress: null,
-    exercises: [
-      {
-        id: 1004,
-        lesson_id: 104,
-        title: "Build calloc()",
-        instructions: `
-          <h4>Exercise: Re-create <code>ft_calloc</code></h4>
-          <p>Allocate <code>count</code> blocks of <code>size</code> bytes and zero them.</p>
-          <ol>
-            <li>Detect overflow before multiplying.</li>
-            <li>Use <code>malloc</code> and <code>ft_memset</code> style logic to zero memory.</li>
-            <li>Return <code>NULL</code> when allocation fails.</li>
-          </ol>
-        `,
-        starter_code: {
-          c: `#include <stdlib.h>
-#include <stddef.h>
-
-void    *ft_calloc(size_t count, size_t size)
-{
-    (void)count;
-    (void)size;
-    // TODO: guard against overflow, allocate memory, zero it out, and return the pointer
-    return NULL;
-}
-`
-        },
-        default_language: "c",
-        order_index: 1,
-        tests_count: 3,
-        progress: null
-      }
-    ]
-  }
-];
-
-const demoCourseData: CourseLessonsResponse = {
-  course: demoCourse,
-  lessons: demoLessons,
-  course_progress: {
-    course: demoCourse,
-    status: "in_progress",
-    completion_percentage: 0,
-    lessons_completed: 0,
-    lessons_total: demoLessons.length,
-    exercises_completed: 0,
-    exercises_total: demoLessons.reduce((total, lesson) => total + lesson.exercises.length, 0)
-  }
-};
-
-const computeProgressFromLessons = (course: Course, lessons: LessonDetail[]): CourseProgressSummary => {
-  const lessonsCompleted = lessons.filter((lesson) => lesson.progress?.completed).length;
-  const exercisesTotal = lessons.reduce((total, lesson) => total + lesson.exercises.length, 0);
-  const exercisesCompleted = lessons.reduce(
-    (total, lesson) =>
-      total +
-      lesson.exercises.filter((exercise) => (exercise.progress?.status ?? "") === "passed").length,
-    0
-  );
-  const completionPercentage = exercisesTotal === 0 ? 0 : Math.round((exercisesCompleted / exercisesTotal) * 100);
-  return {
-    course,
-    status: completionPercentage === 100 ? "completed" : "in_progress",
-    completion_percentage: completionPercentage,
-    lessons_completed: lessonsCompleted,
-    lessons_total: lessons.length,
-    exercises_completed: exercisesCompleted,
-    exercises_total: exercisesTotal
-  };
-};
 
 const cloneCourseData = (source: CourseLessonsResponse): CourseLessonsResponse => {
   const course = { ...source.course };
@@ -727,9 +399,12 @@ const CoursePage = () => {
   const [runLoading, setRunLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
   const [lessonMarkLoading, setLessonMarkLoading] = useState(false);
+  const [nextLessonLoading, setNextLessonLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [videoWatched, setVideoWatched] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [autoCompleteTriggered, setAutoCompleteTriggered] = useState(false);
   const [autosaveStatus, setAutosaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [hintStates, setHintStates] = useState<Record<string, boolean>>({});
   const [leftTab, setLeftTab] = useState<"overview" | "lesson" | "video" | "exercise">("lesson");
@@ -884,12 +559,29 @@ const CoursePage = () => {
     }
   }, [courseRouteBase, isWorkspaceRoute, lessonIdFromParam, navigate]);
 
+  const getFallbackCourse = useCallback((): CourseLessonsResponse => {
+    if (courseIdParam && yearOneCourses[courseIdParam]) {
+      return yearOneCourses[courseIdParam];
+    }
+
+    if (Number.isFinite(numericCourseId)) {
+      const candidate = Object.values(yearOneCourses).find(
+        (entry) => entry.course.id === numericCourseId
+      );
+      if (candidate) {
+        return candidate;
+      }
+    }
+
+    return yearOneCourses[defaultYearOneCourseSlug];
+  }, [courseIdParam, numericCourseId]);
+
   const loadCourse = useCallback(async () => {
     const shouldUseDemo = !Number.isFinite(numericCourseId);
     setSuccessMessage(null);
     if (shouldUseDemo) {
       setIsDemoMode(true);
-      applyCourseData(cloneCourseData(demoCourseData));
+      applyCourseData(cloneCourseData(getFallbackCourse()));
       return;
     }
 
@@ -900,9 +592,9 @@ const CoursePage = () => {
     } catch (error) {
       console.error("Failed to load course", error);
       setIsDemoMode(true);
-      applyCourseData(cloneCourseData(demoCourseData));
+      applyCourseData(cloneCourseData(getFallbackCourse()));
     }
-  }, [numericCourseId, applyCourseData]);
+  }, [numericCourseId, applyCourseData, getFallbackCourse]);
 
   useEffect(() => {
     void loadCourse();
@@ -1063,25 +755,12 @@ const CoursePage = () => {
     return keys;
   }, [activeExercise]);
 
-  const exercisePosition = useMemo(() => {
-    if (!activeLesson || !activeExercise) {
-      return null;
-    }
-    const index = activeLesson.exercises.findIndex((exercise) => exercise.id === activeExercise.id);
-    if (index === -1) {
-      return null;
-    }
-    return {
-      index,
-      number: index + 1,
-      total: activeLesson.exercises.length
-    };
-  }, [activeLesson, activeExercise]);
-
   const testsPassed = useMemo(
     () => testResults.length > 0 && testResults.every((result) => result.passed),
     [testResults]
   );
+
+  const videoProgressPercent = Math.min(Math.max(Math.round(videoProgress * 100), 0), 100);
 
   const exerciseHints = useMemo<string[]>(() => {
     if (!activeExercise) {
@@ -1096,44 +775,34 @@ const CoursePage = () => {
     ];
   }, [activeExercise, isDemoMode]);
 
-  const nextExerciseCandidate = useMemo(() => {
+  const nextLessonCandidate = useMemo(() => {
     if (!activeLesson) {
       return null;
-    }
-    if (exercisePosition && exercisePosition.index < activeLesson.exercises.length - 1) {
-      return activeLesson.exercises[exercisePosition.index + 1];
     }
     const currentLessonIndex = sortedLessons.findIndex((lesson) => lesson.id === activeLesson.id);
     if (currentLessonIndex === -1) {
       return null;
     }
-    for (let index = currentLessonIndex + 1; index < sortedLessons.length; index += 1) {
-      const lesson = sortedLessons[index];
-      if (lesson.exercises.length > 0) {
-        return lesson.exercises[0];
-      }
-    }
-    return null;
-  }, [activeLesson, exercisePosition, sortedLessons]);
+    return sortedLessons[currentLessonIndex + 1] ?? null;
+  }, [activeLesson, sortedLessons]);
 
-  const nextExerciseLesson = useMemo(() => {
-    if (!nextExerciseCandidate) {
+  const previousLessonCandidate = useMemo(() => {
+    if (!activeLesson) {
       return null;
     }
-    return sortedLessons.find((lesson) => lesson.id === nextExerciseCandidate.lesson_id) ?? null;
-  }, [nextExerciseCandidate, sortedLessons]);
+    const currentLessonIndex = sortedLessons.findIndex((lesson) => lesson.id === activeLesson.id);
+    if (currentLessonIndex === -1) {
+      return null;
+    }
+    return currentLessonIndex > 0 ? sortedLessons[currentLessonIndex - 1] : null;
+  }, [activeLesson, sortedLessons]);
 
-  const nextExerciseLabel = useMemo(() => {
-    if (!nextExerciseCandidate) {
-      return "All exercises completed";
+  const nextLessonLabel = useMemo(() => {
+    if (!nextLessonCandidate) {
+      return "All lessons completed";
     }
-    const isSameLesson = nextExerciseCandidate.lesson_id === activeLesson?.id;
-    if (isSameLesson) {
-      return `Next exercise · ${nextExerciseCandidate.title}`;
-    }
-    const nextLessonTitle = nextExerciseLesson?.title;
-    return nextLessonTitle ? `Next class · ${nextLessonTitle}` : "Next class";
-  }, [nextExerciseCandidate, activeLesson, nextExerciseLesson]);
+    return `Next lesson · ${nextLessonCandidate.title}`;
+  }, [nextLessonCandidate]);
 
   const readyForNextLesson = videoWatched && testsPassed;
 
@@ -1308,6 +977,7 @@ const CoursePage = () => {
                     title={activeLesson.title}
                     onWatched={() => setVideoWatched(true)}
                     watched={videoWatched}
+                    onProgress={handleVideoProgress}
                   />
                 ) : (
                   <div className="flex items-center justify-center bg-slate-900/60 p-12 text-sm text-slate-300">
@@ -1315,9 +985,20 @@ const CoursePage = () => {
                   </div>
                 )}
               </div>
-              <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white/80 p-4 text-xs font-semibold uppercase tracking-[0.35em] text-slate-500 shadow-sm dark:border-slate-800/60 dark:bg-slate-900/60 dark:text-slate-400">
-                <span>Progress</span>
-                <span className="text-sm text-slate-900 dark:text-white">{videoWatched ? "Watched" : "Not started"}</span>
+              <div className="space-y-3 rounded-xl border border-slate-200 bg-white/80 p-4 text-xs font-semibold uppercase tracking-[0.35em] text-slate-500 shadow-sm dark:border-slate-800/60 dark:bg-slate-900/60 dark:text-slate-400">
+                <div className="flex items-center justify-between">
+                  <span>Video progress</span>
+                  <span className="text-sm text-slate-900 dark:text-white">{videoProgressPercent}%</span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800/50">
+                  <div
+                    className="h-full rounded-full bg-sky-500 transition-all duration-300 ease-out"
+                    style={{ width: `${videoProgressPercent}%` }}
+                  />
+                </div>
+                <p className="text-[11px] font-medium uppercase tracking-[0.35em] text-slate-500 dark:text-slate-400">
+                  {videoWatched ? "Marked as watched" : "Keep watching to finish this video"}
+                </p>
               </div>
             </div>
           ) : null}
@@ -1401,19 +1082,36 @@ const CoursePage = () => {
           </div>
           <div className="flex items-center gap-2.5">
             <button
-              onClick={handleMarkLessonComplete}
-              disabled={!activeLesson || lessonMarkLoading}
+              onClick={() => {
+                void handleMarkLessonComplete();
+              }}
+              disabled={!activeLesson || lessonMarkLoading || lessonAlreadyCompleted}
               className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white/10 dark:hover:bg-white/20"
             >
-              {lessonMarkLoading ? "Saving..." : "Mark lesson complete"}
+              {lessonAlreadyCompleted
+                ? "Lesson completed"
+                : lessonMarkLoading
+                ? "Saving..."
+                : "Mark lesson complete"}
             </button>
             <button
-              onClick={handleGoToNextExercise}
+              onClick={() => {
+                void handleGoToLesson("previous");
+              }}
+              disabled={previousButtonDisabled}
+              className="inline-flex items-center gap-2 rounded-full bg-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              <span>Previous lesson</span>
+            </button>
+            <button
+              onClick={() => {
+                void handleGoToLesson("next");
+              }}
               disabled={nextButtonDisabled}
               className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <span>{nextExerciseLabel}</span>
-              <span aria-hidden="true">→</span>
+              <span>{nextLessonLoading ? "Loading next lesson..." : nextLessonLabel}</span>
+              {nextLessonLoading ? null : <span aria-hidden="true">→</span>}
             </button>
           </div>
         </div>
@@ -1660,12 +1358,15 @@ const CoursePage = () => {
       setActiveLessonId(lessonId);
       setLeftTab("lesson");
       setIsEditorFullscreen(false);
-      setVideoWatched(false);
       setSolutionTab("solution1");
       setOutputTab("custom");
       setAutosaveStatus("idle");
       setHintStates({});
       const lesson = lessons.find((item) => item.id === lessonId);
+      const initialWatched = Boolean(lesson?.progress?.completed);
+      setVideoWatched(initialWatched);
+      setVideoProgress(initialWatched ? 1 : 0);
+      setAutoCompleteTriggered(initialWatched);
       const firstExercise = lesson?.exercises[0];
       setActiveExerciseId(firstExercise?.id ?? null);
       if (firstExercise) {
@@ -1726,6 +1427,11 @@ const CoursePage = () => {
     [activeLessonId, courseRouteBase, handleExerciseChange, handleLessonSelect, isWorkspaceRoute, navigate]
   );
 
+  const handleVideoProgress = useCallback((ratio: number) => {
+    const clamped = Number.isFinite(ratio) ? Math.min(Math.max(ratio, 0), 1) : 0;
+    setVideoProgress(clamped);
+  }, []);
+
   useEffect(() => {
     if (!isWorkspaceRoute) return;
     if (!courseData) return;
@@ -1737,8 +1443,17 @@ const CoursePage = () => {
   }, [activeLessonId, courseData, handleLessonSelect, isWorkspaceRoute, lessonIdFromParam]);
 
   useEffect(() => {
-    setVideoWatched(false);
-  }, [activeLessonId]);
+    if (!activeLesson) {
+      setVideoWatched(false);
+      setVideoProgress(0);
+      setAutoCompleteTriggered(false);
+      return;
+    }
+    const completed = Boolean(activeLesson.progress?.completed);
+    setVideoWatched(completed);
+    setVideoProgress(completed ? 1 : 0);
+    setAutoCompleteTriggered(completed);
+  }, [activeLesson]);
 
   useEffect(() => {
     setSolutionTab("solution1");
@@ -1782,14 +1497,153 @@ const CoursePage = () => {
     }
   };
 
-  const handleGoToNextExercise = () => {
-    if (!nextExerciseCandidate) return;
-    if (nextExerciseCandidate.lesson_id === activeLesson?.id) {
-      handleExerciseChange(nextExerciseCandidate.id);
-    } else {
-      handleLessonSelect(nextExerciseCandidate.lesson_id);
-    }
-  };
+  const handleGoToLesson = useCallback(
+    async (direction: "previous" | "next") => {
+      if (!courseData || !activeLesson) {
+        return;
+      }
+
+      const targetLesson = direction === "next" ? nextLessonCandidate : previousLessonCandidate;
+      if (!targetLesson) {
+        setSuccessMessage(
+          direction === "next"
+            ? "You're all caught up! 🎉 There isn't a next lesson yet."
+            : "You're already at the first lesson."
+        );
+        return;
+      }
+
+      setSuccessMessage(null);
+      const cachedCompletion = Boolean(targetLesson.progress?.completed);
+      setVideoWatched(cachedCompletion);
+      setVideoProgress(cachedCompletion ? 1 : 0);
+      setAutoCompleteTriggered(cachedCompletion);
+
+      if (isDemoMode) {
+        handleLessonSelect(targetLesson.id);
+        return;
+      }
+
+      const updateLoading = direction === "next";
+      if (updateLoading) {
+        setNextLessonLoading(true);
+      }
+
+      try {
+        const lessonResponse =
+          direction === "next"
+            ? await fetchNextLesson<LessonDetail>(courseData.course.id, activeLesson.id)
+            : await fetchLesson<LessonDetail>(courseData.course.id, targetLesson.id);
+
+        setCourseData((prev) => {
+          if (!prev) {
+            return prev;
+          }
+          const existingIndex = prev.lessons.findIndex((lesson) => lesson.id === lessonResponse.id);
+          const updatedLessons =
+            existingIndex === -1
+              ? [...prev.lessons, lessonResponse]
+              : prev.lessons.map((lesson) => (lesson.id === lessonResponse.id ? lessonResponse : lesson));
+          const sortedUpdatedLessons = [...updatedLessons].sort((a, b) => {
+            if (a.order_index === b.order_index) {
+              return a.id - b.id;
+            }
+            return a.order_index - b.order_index;
+          });
+          return {
+            ...prev,
+            lessons: sortedUpdatedLessons,
+            course_progress: computeProgressFromLessons(prev.course, sortedUpdatedLessons),
+          };
+        });
+
+        setEditorValues((prev) => {
+          const nextState: EditorState = { ...prev };
+          const solutionKeys = ["solution1"] as const;
+          lessonResponse.exercises.forEach((exercise) => {
+            const existingExerciseState = nextState[exercise.id] ?? {};
+            const updatedLanguageState: Record<string, Record<string, string>> = { ...existingExerciseState };
+            Object.entries(exercise.starter_code ?? {}).forEach(([language, starter]) => {
+              const existingLanguageState = existingExerciseState[language] ?? {};
+              const languageState: Record<string, string> = { ...existingLanguageState };
+              solutionKeys.forEach((key, index) => {
+                if (!(key in languageState)) {
+                  languageState[key] = index === 0 ? starter : existingLanguageState[key] ?? starter;
+                }
+              });
+              updatedLanguageState[language] = languageState;
+            });
+            nextState[exercise.id] = updatedLanguageState;
+          });
+          return nextState;
+        });
+
+        setConsoleOutput("");
+        setTestResults([]);
+        setLeftTab("lesson");
+        setIsEditorFullscreen(false);
+        setSolutionTab("solution1");
+        setOutputTab("custom");
+        setAutosaveStatus("idle");
+        setHintStates({});
+
+        setActiveLessonId(lessonResponse.id);
+
+        const lessonCompleted = Boolean(lessonResponse.progress?.completed);
+        setVideoWatched(lessonCompleted);
+        setVideoProgress(lessonCompleted ? 1 : 0);
+        setAutoCompleteTriggered(lessonCompleted);
+
+        const firstExercise = lessonResponse.exercises[0] ?? null;
+        setActiveExerciseId(firstExercise?.id ?? null);
+        if (firstExercise) {
+          const languages = Object.keys(firstExercise.starter_code ?? {});
+          if (languages.length > 0) {
+            const preferred = firstExercise.progress?.last_language;
+            if (preferred && languages.includes(preferred)) {
+              setSelectedLanguage(preferred);
+            } else if (firstExercise.default_language && languages.includes(firstExercise.default_language)) {
+              setSelectedLanguage(firstExercise.default_language);
+            } else {
+              setSelectedLanguage(languages[0]);
+            }
+          } else {
+            setSelectedLanguage(firstExercise.default_language ?? "python");
+          }
+        } else {
+          setSelectedLanguage("python");
+        }
+
+        if (isWorkspaceRoute) {
+          navigate(`${courseRouteBase}/lesson/${lessonResponse.id}`);
+        }
+      } catch (error) {
+        if (direction === "next" && isAxiosError(error) && error.response?.status === 404) {
+          setSuccessMessage("You're all caught up! 🎉 There isn't a next lesson yet.");
+        } else {
+          console.error("Failed to load lesson", error);
+          if (typeof window !== "undefined") {
+            window.alert("We couldn't load the lesson. Please try again.");
+          }
+        }
+      } finally {
+        if (updateLoading) {
+          setNextLessonLoading(false);
+        }
+      }
+    },
+    [
+      activeLesson,
+      courseData,
+      courseRouteBase,
+      handleLessonSelect,
+      isDemoMode,
+      isWorkspaceRoute,
+      navigate,
+      nextLessonCandidate,
+      previousLessonCandidate,
+    ]
+  );
 
   const handleRunCode = async () => {
     if (!activeExercise) return;
@@ -1926,45 +1780,75 @@ const CoursePage = () => {
     }
   };
 
-  const handleMarkLessonComplete = async () => {
-    if (!activeLesson) return;
-    setLessonMarkLoading(true);
-    if (isDemoMode) {
-      setCourseData((prev) => {
-        if (!prev) {
-          return prev;
-        }
-        const updatedLessons = prev.lessons.map((lesson) => {
-          if (lesson.id !== activeLesson.id) {
-            return lesson;
+  const handleMarkLessonComplete = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!activeLesson) return;
+      const silent = options?.silent ?? false;
+
+      if (!silent) {
+        setLessonMarkLoading(true);
+      }
+
+      if (isDemoMode) {
+        setCourseData((prev) => {
+          if (!prev) {
+            return prev;
           }
-          return {
-            ...lesson,
-            progress: {
-              ...(lesson.progress ?? { completed: false }),
-              completed: true,
-              completed_at: new Date().toISOString()
+          const updatedLessons = prev.lessons.map((lesson) => {
+            if (lesson.id !== activeLesson.id) {
+              return lesson;
             }
+            return {
+              ...lesson,
+              progress: {
+                ...(lesson.progress ?? { completed: false }),
+                completed: true,
+                completed_at: new Date().toISOString()
+              }
+            };
+          });
+          return {
+            ...prev,
+            lessons: updatedLessons,
+            course_progress: computeProgressFromLessons(prev.course, updatedLessons)
           };
         });
-        return {
-          ...prev,
-          lessons: updatedLessons,
-          course_progress: computeProgressFromLessons(prev.course, updatedLessons)
-        };
-      });
-      setSuccessMessage("Lesson marked as complete. Keep the momentum going!");
-      setLessonMarkLoading(false);
-      return;
+        if (!silent) {
+          setSuccessMessage("Lesson marked as complete. Keep the momentum going!");
+          setLessonMarkLoading(false);
+        }
+        setVideoWatched(true);
+        setVideoProgress(1);
+        setAutoCompleteTriggered(true);
+        return;
+      }
+
+      try {
+        await api.post("/mark-lesson-complete", { lesson_id: activeLesson.id });
+        await loadCourse();
+        if (!silent) {
+          setSuccessMessage("Lesson marked as complete. Keep the momentum going!");
+        }
+      } finally {
+        if (!silent) {
+          setLessonMarkLoading(false);
+        }
+        setVideoWatched(true);
+        setVideoProgress(1);
+        setAutoCompleteTriggered(true);
+      }
+    },
+    [activeLesson, isDemoMode, loadCourse]
+  );
+
+  useEffect(() => {
+    if (!activeLesson) return;
+    if (autoCompleteTriggered) return;
+    if (videoWatched && testsPassed) {
+      setAutoCompleteTriggered(true);
+      void handleMarkLessonComplete({ silent: true });
     }
-    try {
-      await api.post("/mark-lesson-complete", { lesson_id: activeLesson.id });
-      await loadCourse();
-      setSuccessMessage("Lesson marked as complete. Keep the momentum going!");
-    } finally {
-      setLessonMarkLoading(false);
-    }
-  };
+  }, [activeLesson, autoCompleteTriggered, videoWatched, testsPassed, handleMarkLessonComplete]);
 
   if ((!user && !isDemoMode) || !courseData) {
     return (
@@ -1984,7 +1868,9 @@ const CoursePage = () => {
       .join("") || "GS";
 
   const profileSubline = isDemoMode ? "Demo student" : "Student workspace";
-  const nextButtonDisabled = !nextExerciseCandidate || !readyForNextLesson;
+  const lessonAlreadyCompleted = Boolean(activeLesson?.progress?.completed);
+  const previousButtonDisabled = nextLessonLoading || !previousLessonCandidate;
+  const nextButtonDisabled = nextLessonLoading || !nextLessonCandidate;
   const navLanguageDisabled = availableLanguages.length === 0;
   const feedbackHistory = activeExercise?.progress?.last_run_output ?? "";
 

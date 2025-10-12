@@ -14,3 +14,13 @@ api.interceptors.request.use((config) => {
 });
 
 export default api;
+
+export async function fetchLesson<T = unknown>(courseId: number, lessonId: number): Promise<T> {
+  const { data } = await api.get<T>(`/courses/${courseId}/lessons/${lessonId}`);
+  return data;
+}
+
+export async function fetchNextLesson<T = unknown>(courseId: number, lessonId: number): Promise<T> {
+  const { data } = await api.get<T>(`/courses/${courseId}/lessons/${lessonId}/next`);
+  return data;
+}
