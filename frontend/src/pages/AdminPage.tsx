@@ -2,7 +2,22 @@ import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } fro
 import api from "../api";
 import { Course, CourseLessonsResponse, LessonDetail } from "../types/course";
 
-const initialLessonForm = {
+type LessonFormState = {
+  title: string;
+  description: string;
+  notes: string;
+  orderIndex: string;
+  courseId: string;
+};
+
+type CourseFormState = {
+  title: string;
+  description: string;
+  year: string;
+  orderIndex: string;
+};
+
+const initialLessonForm: LessonFormState = {
   title: "",
   description: "",
   notes: "",
@@ -10,34 +25,28 @@ const initialLessonForm = {
   courseId: "",
 };
 
+const createInitialCourseForm = (): CourseFormState => ({
+  title: "",
+  description: "",
+  year: new Date().getFullYear().toString(),
+  orderIndex: "",
+});
+
 const AdminPage = () => {
   const [courses, setCourses] = useState<Course[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [courseForm, setCourseForm] = useState<CourseForm>(emptyCourseForm);
-  const [savingCourse, setSavingCourse] = useState(false);
-  const [feedbackDrafts, setFeedbackDrafts] = useState<Record<number, string>>({});
-  const [deletingCourseId, setDeletingCourseId] = useState<number | null>(null);
-
-  const loadData = async () => {
-    const [{ data: userList }, { data: courseList }, { data: projectList }] = await Promise.all([
-      api.get<User[]>("/users"),
-      api.get<Course[]>("/courses"),
-      api.get<Project[]>("/projects"),
-    ]);
-    setStudents(userList.filter((item) => item.id !== user?.id));
-    setCourses(courseList);
-    setProjects(projectList);
-  };
-
-  const [courseForm, setCourseForm] = useState({
-    title: "",
-    description: "",
-    year: new Date().getFullYear().toString(),
-    orderIndex: "",
-  });
+  const [lessons, setLessons] = useState<LessonDetail[]>([]);
+  const [lessonsLoading, setLessonsLoading] = useState(false);
+  const [lessonForm, setLessonForm] = useState<LessonFormState>(() => ({ ...initialLessonForm }));
+  const [editingLessonId, setEditingLessonId] = useState<number | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [lessonFeedback, setLessonFeedback] = useState<string | null>(null);
+  const [lessonError, setLessonError] = useState<string | null>(null);
+  const [courseForm, setCourseForm] = useState<CourseFormState>(() => createInitialCourseForm());
   const [courseSubmitting, setCourseSubmitting] = useState(false);
   const [courseFeedback, setCourseFeedback] = useState<string | null>(null);
   const [courseError, setCourseError] = useState<string | null>(null);
+  const [deletingCourseId, setDeletingCourseId] = useState<number | null>(null);
 
   const loadCourses = useCallback(async () => {
     try {
@@ -172,7 +181,7 @@ const AdminPage = () => {
   };
 
   const resetCourseForm = () => {
-    setCourseForm({ title: "", description: "", year: new Date().getFullYear().toString(), orderIndex: "" });
+    setCourseForm(createInitialCourseForm());
   };
 
   const handleCourseSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -638,6 +647,12 @@ const AdminPage = () => {
           </table>
         </div>
       </section>
+
+          {lessonFeedback ? (
+            <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-600 dark:border-emerald-400/40 dark:text-emerald-300">
+              {lessonFeedback}
+            </div>
+          ) : null}
 
           {lessonError ? (
             <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-600 dark:border-rose-400/40 dark:text-rose-300">
