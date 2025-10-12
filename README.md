@@ -132,6 +132,32 @@ uvicorn app.main:app --reload
 
 The API defaults to SQLite storage (`./orus_school.db`). Set `DATABASE_URL` to point to PostgreSQL or another database if required.
 
+### Docker
+
+The backend can also be packaged with Docker. Build the image from the repository root:
+
+```bash
+docker build -t orus-backend backend
+```
+
+Then run the container, exposing port 8000 locally:
+
+```bash
+docker run -p 8000:8000 orus-backend
+```
+
+The container image uses `build-essential` so the embedded compiler toolchain is available during dependency installation.
+
+Once the container is up, the FastAPI app will already be serving requests at
+`http://localhost:8000` using the default `uvicorn app.main:app` command defined
+in the Dockerfile. You can confirm everything worked by visiting the automatic
+interactive docs at `http://localhost:8000/docs` or hitting the health endpoint
+with `curl`:
+
+```bash
+curl http://localhost:8000/docs
+```
+
 ### Creating an admin user
 
 ```bash
