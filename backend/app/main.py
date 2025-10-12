@@ -27,16 +27,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth_router)
-app.include_router(course_router)
-app.include_router(lesson_router)
-app.include_router(project_router)
-app.include_router(progress_router)
-app.include_router(user_router)
-app.include_router(execution_router)
-app.include_router(learning_router)
-app.include_router(admin_router)
-app.include_router(video_router)
+# Register routers both at the root (legacy behaviour expected by existing
+# clients and tests) and under an ``/api`` prefix so that deployments behind
+# simple reverse proxies – such as Docker setups serving the frontend at the
+# domain root – can still reach the backend without additional rewrites. The
+# prefixed routes are hidden from the OpenAPI schema to avoid duplicate
+# documentation entries.
+_ROUTERS = [
+    auth_router,
+    course_router,
+    lesson_router,
+    project_router,
+    progress_router,
+    user_router,
+    execution_router,
+    learning_router,
+    admin_router,
+    video_router,
+]
+
+for router in _ROUTERS:
+    app.include_router(router)
+    app.include_router(router, prefix="/api", include_in_schema=False)
 
 
 @app.get("/health")

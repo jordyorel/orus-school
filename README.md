@@ -130,7 +130,11 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-The API defaults to SQLite storage (`./orus_school.db`). Set `DATABASE_URL` to point to PostgreSQL or another database if required.
+The API defaults to SQLite storage (`backend/data/orus_school.db`). The directory
+is created automatically so the database file lives alongside your checkout even
+when the backend runs inside Docker. Set `DATABASE_URL` to point to PostgreSQL or
+another database if required, or `SQLITE_PATH` to override the SQLite file
+location.
 
 ### Docker
 
@@ -140,10 +144,11 @@ The backend can also be packaged with Docker. Build the image from the repositor
 docker build -t orus-backend backend
 ```
 
-Then run the container, exposing port 8000 locally:
+Then run the container, exposing port 8000 locally. Mount the `backend/data`
+directory so that the SQLite database persists on your machine:
 
 ```bash
-docker run -p 8000:8000 orus-backend
+docker run -p 8000:8000 -v "$(pwd)/backend/data:/app/data" orus-backend
 ```
 
 The container image uses `build-essential` so the embedded compiler toolchain is available during dependency installation.
