@@ -47,6 +47,7 @@ const AdminPage = () => {
   const [courseFeedback, setCourseFeedback] = useState<string | null>(null);
   const [courseError, setCourseError] = useState<string | null>(null);
   const [deletingCourseId, setDeletingCourseId] = useState<number | null>(null);
+  const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
 
   const loadCourses = useCallback(async () => {
     try {
@@ -103,6 +104,7 @@ const AdminPage = () => {
   }, [lessonForm.courseId, loadLessons]);
 
   const hasCourses = courses.length > 0;
+  const isEditingCourse = editingCourseId !== null;
 
   const handleLessonInputChange = (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -184,6 +186,23 @@ const AdminPage = () => {
     setCourseForm(createInitialCourseForm());
   };
 
+  const cancelCourseEditing = () => {
+    setEditingCourseId(null);
+    resetCourseForm();
+  };
+
+  const handleCourseEdit = (course: Course) => {
+    setCourseForm({
+      title: course.title,
+      description: course.description,
+      year: String(course.year),
+      orderIndex: course.order_index.toString(),
+    });
+    setEditingCourseId(course.id);
+    setCourseFeedback(null);
+    setCourseError(null);
+  };
+
   const handleCourseSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!courseForm.title || !courseForm.description || !courseForm.year) {
@@ -203,20 +222,35 @@ const AdminPage = () => {
     setCourseFeedback(null);
 
     try {
-      const { data } = await api.post<Course>("/courses", {
-        title: courseForm.title,
-        description: courseForm.description,
-        year: yearValue,
-        order_index: orderValue ?? 0,
-      });
-      setCourseFeedback(`Course "${courseForm.title}" created successfully.`);
-      resetCourseForm();
-      setLessonForm((prev) => ({ ...prev, courseId: String(data.id) }));
-      await loadCourses();
-      await loadLessons(String(data.id));
+      if (isEditingCourse && editingCourseId !== null) {
+        const { data } = await api.patch<Course>(`/courses/${editingCourseId}`, {
+          title: courseForm.title,
+          description: courseForm.description,
+          year: yearValue,
+          order_index: orderValue ?? 0,
+        });
+        setCourseFeedback(`Course "${courseForm.title}" updated successfully.`);
+        setCourses((prev) => prev.map((course) => (course.id === data.id ? data : course)));
+        if (lessonForm.courseId === String(data.id)) {
+          await loadLessons(String(data.id));
+        }
+        cancelCourseEditing();
+      } else {
+        const { data } = await api.post<Course>("/courses", {
+          title: courseForm.title,
+          description: courseForm.description,
+          year: yearValue,
+          order_index: orderValue ?? 0,
+        });
+        setCourseFeedback(`Course "${courseForm.title}" created successfully.`);
+        resetCourseForm();
+        setLessonForm((prev) => ({ ...prev, courseId: String(data.id) }));
+        await loadCourses();
+        await loadLessons(String(data.id));
+      }
     } catch (err) {
-      console.error("Course creation failed", err);
-      setCourseError("Unable to create course. Please check the details and try again.");
+      console.error("Course save failed", err);
+      setCourseError("Unable to save course. Please check the details and try again.");
     } finally {
       setCourseSubmitting(false);
     }
@@ -233,7 +267,26 @@ const AdminPage = () => {
     setDeletingCourseId(courseId);
     try {
       await api.delete(`/courses/${courseId}`);
-      setCourses((prev) => prev.filter((course) => course.id !== courseId));
+      const remainingCourses = courses.filter((course) => course.id !== courseId);
+      setCourses(remainingCourses);
+
+      const wasSelected = lessonForm.courseId === String(courseId);
+      const nextCourseId = remainingCourses[0]?.id;
+      if (wasSelected) {
+        setLessonForm((prev) => ({
+          ...prev,
+          courseId: nextCourseId ? String(nextCourseId) : "",
+        }));
+        if (nextCourseId) {
+          await loadLessons(String(nextCourseId));
+        } else {
+          setLessons([]);
+        }
+      }
+
+      if (editingCourseId === courseId) {
+        cancelCourseEditing();
+      }
     } finally {
       setDeletingCourseId(null);
     }
@@ -253,9 +306,13 @@ const AdminPage = () => {
 
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800/70 dark:bg-slate-900">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Create a course</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+            {isEditingCourse ? "Edit course" : "Create a course"}
+          </h2>
           <p className="mb-4 text-xs text-slate-600 dark:text-slate-400">
-            Add a new course before uploading lessons. Students will see courses in the dashboard immediately.
+            {isEditingCourse
+              ? "Update the course details and save your changes. Students will see updates in the dashboard immediately."
+              : "Add a new course before uploading lessons. Students will see courses in the dashboard immediately."}
           </p>
           <form onSubmit={handleCourseSubmit} className="grid gap-4">
             <div className="grid gap-2">
@@ -324,14 +381,20 @@ const AdminPage = () => {
                 disabled={courseSubmitting}
                 className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow transition hover:-translate-y-0.5 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {courseSubmitting ? "Saving course..." : "Create course"}
+                {courseSubmitting
+                  ? isEditingCourse
+                    ? "Updating course..."
+                    : "Saving course..."
+                  : isEditingCourse
+                  ? "Save changes"
+                  : "Create course"}
               </button>
               <button
                 type="button"
-                onClick={resetCourseForm}
+                onClick={isEditingCourse ? cancelCourseEditing : resetCourseForm}
                 className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:-translate-y-0.5 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
               >
-                Reset
+                {isEditingCourse ? "Cancel editing" : "Reset"}
               </button>
             </div>
 
@@ -361,19 +424,53 @@ const AdminPage = () => {
           ) : (
             <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
               {courses.map((course) => (
-                <li key={course.id} className="p-4 text-sm text-slate-700 dark:text-slate-200">
-                  <div className="flex items-center justify-between">
+                <li
+                  key={course.id}
+                  className={`space-y-3 p-4 text-sm text-slate-700 transition dark:text-slate-200 ${
+                    editingCourseId === course.id
+                      ? "bg-sky-50/80 dark:bg-slate-800/70"
+                      : "bg-white dark:bg-transparent"
+                  }`}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="font-semibold text-slate-900 dark:text-white">{course.title}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         Year {course.year} · Order {course.order_index}
                       </p>
                     </div>
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                      ID {course.id}
-                    </span>
+                    <div className="flex flex-col items-end gap-2 sm:items-end">
+                      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                        <span>ID {course.id}</span>
+                        {editingCourseId === course.id ? (
+                          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                            Editing
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleCourseEdit(course)}
+                          disabled={courseSubmitting || deletingCourseId === course.id}
+                          className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600 transition hover:-translate-y-0.5 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleCourseDelete(course.id);
+                          }}
+                          disabled={deletingCourseId === course.id || courseSubmitting}
+                          className="inline-flex items-center gap-2 rounded-full border border-rose-400 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-rose-600 transition hover:-translate-y-0.5 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-500/70 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                        >
+                          {deletingCourseId === course.id ? "Deleting..." : "Delete"}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">{course.description}</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">{course.description}</p>
                 </li>
               ))}
             </ul>
