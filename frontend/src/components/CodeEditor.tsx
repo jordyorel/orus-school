@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType } from "react";
 
 export type CodeEditorProps = {
   language: string;
@@ -12,6 +12,7 @@ export type CodeEditorProps = {
 };
 
 type Monaco = typeof import("monaco-editor");
+type MonacoEditorInstance = import("monaco-editor").editor.IStandaloneCodeEditor;
 
 type MonacoEditorProps = {
   height: string;
@@ -69,6 +70,10 @@ const CodeEditor = ({
   const editorLanguage = useMemo(() => language.toLowerCase(), [language]);
   const monacoRef = useRef<Monaco | null>(null);
   const themesRegisteredRef = useRef(false);
+  const editorInstanceRef = useRef<MonacoEditorInstance | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const fallbackTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const fallbackSelectionRef = useRef<{ start: number; end: number; scrollTop: number } | null>(null);
   const resolvedHeight = useMemo(() => {
     if (typeof height === "number") {
       return `${height}px`;
@@ -157,15 +162,97 @@ const CodeEditor = ({
     ? "border-t border-white/10 bg-white/5 p-3 text-xs text-slate-300"
     : "border-t border-slate-200 bg-slate-50 p-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300";
 
+  const fallbackStyles = useMemo(
+    () => ({
+      color: theme === "dark" ? "#e2e8f0" : "#0f172a",
+      caretColor: theme === "dark" ? "#38bdf8" : "#0f172a",
+      backgroundColor: unstyled ? "transparent" : theme === "dark" ? "#0f172a" : "#ffffff",
+    }),
+    [theme, unstyled]
+  );
+
+  useLayoutEffect(() => {
+    if (monacoModule) {
+      return;
+    }
+
+    const textarea = fallbackTextareaRef.current;
+    const selection = fallbackSelectionRef.current;
+    if (!textarea || !selection) {
+      return;
+    }
+
+    const { start, end, scrollTop } = selection;
+    try {
+      textarea.setSelectionRange(start, end);
+      textarea.scrollTop = scrollTop;
+    } catch (error) {
+      // Ignore selection errors (e.g. element not focusable yet)
+    }
+  }, [code, monacoModule]);
+
+  useEffect(() => {
+    const monaco = monacoRef.current;
+    if (!monaco) {
+      return;
+    }
+    monaco.editor.setTheme(theme === "dark" ? "orus-dark" : "orus-light");
+  }, [theme]);
+
+  useEffect(() => {
+    if (!monacoModule) {
+      return;
+    }
+
+    const handleWindowResize = () => {
+      editorInstanceRef.current?.layout();
+    };
+
+    window.addEventListener("resize", handleWindowResize);
+    return () => {
+      window.removeEventListener("resize", handleWindowResize);
+    };
+  }, [monacoModule]);
+
+  useEffect(() => {
+    if (!monacoModule) {
+      return;
+    }
+
+    const container = containerRef.current;
+    if (!container || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      editorInstanceRef.current?.layout();
+    });
+
+    observer.observe(container);
+    return () => {
+      observer.disconnect();
+    };
+  }, [monacoModule]);
+
   if (!monacoModule) {
     return (
-      <div className={containerClassName} style={{ height: resolvedHeight }}>
+      <div className={containerClassName} style={{ height: resolvedHeight }} ref={containerRef}>
         <textarea
           className={resolvedTextareaClassName}
           value={code}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) => {
+            fallbackSelectionRef.current = {
+              start: event.target.selectionStart ?? event.target.value.length,
+              end: event.target.selectionEnd ?? event.target.value.length,
+              scrollTop: event.target.scrollTop ?? 0,
+            };
+            onChange(event.target.value);
+          }}
           spellCheck={false}
-          style={{ caretColor: theme === "dark" ? "#38bdf8" : "#0f172a" }}
+          style={fallbackStyles}
+          ref={(element) => {
+            fallbackTextareaRef.current = element;
+          }}
         />
         {loadFailed ? (
           <p className={fallbackNoticeClassName}>
@@ -179,7 +266,7 @@ const CodeEditor = ({
   const EditorComponent = monacoModule.default;
 
   return (
-    <div className={containerClassName} style={{ height: resolvedHeight }}>
+    <div className={containerClassName} style={{ height: resolvedHeight }} ref={containerRef}>
       <EditorComponent
         height={resolvedHeight}
         defaultLanguage={editorLanguage}
@@ -195,6 +282,10 @@ const CodeEditor = ({
           smoothScrolling: true,
         }}
         beforeMount={handleBeforeMount}
+        onMount={(editor) => {
+          editorInstanceRef.current = editor;
+          editor.layout();
+        }}
       />
     </div>
   );

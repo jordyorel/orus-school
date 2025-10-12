@@ -1,7 +1,13 @@
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Optional
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import mimetypes
+import shutil
+
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status, Request
+from fastapi.responses import StreamingResponse, Response
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
@@ -19,6 +25,12 @@ progress_router = APIRouter(prefix="/progress", tags=["progress"])
 user_router = APIRouter(prefix="/users", tags=["users"])
 execution_router = APIRouter(tags=["execution"])
 learning_router = APIRouter(tags=["learning"])
+admin_router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
+video_router = APIRouter(prefix="/videos", tags=["videos"])
+
+MEDIA_ROOT = Path(__file__).resolve().parent / "media"
+VIDEO_UPLOAD_DIR = MEDIA_ROOT / "videos"
+VIDEO_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @auth_router.post("/register", response_model=schemas.User, status_code=status.HTTP_201_CREATED)
@@ -208,6 +220,236 @@ def read_course_lessons(
     course_summary = _build_course_summary(course, lesson_details)
 
     return schemas.CourseLessonsResponse(course=course, lessons=lesson_details, course_progress=course_summary)
+
+
+@course_router.get("/{course_id}/lessons/{lesson_id}", response_model=schemas.LessonDetail)
+def read_course_lesson_detail(
+    course_id: int,
+    lesson_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    lesson = db.get(models.Lesson, lesson_id)
+    if lesson is None or lesson.course_id != course_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lesson not found")
+
+    return _build_lesson_detail(db, lesson, current_user.id)
+
+
+@course_router.get("/{course_id}/lessons/{lesson_id}/next", response_model=schemas.LessonDetail)
+def read_next_course_lesson(
+    course_id: int,
+    lesson_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    current_lesson = db.get(models.Lesson, lesson_id)
+    if current_lesson is None or current_lesson.course_id != course_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lesson not found")
+
+    lessons = (
+        db.execute(
+            select(models.Lesson)
+            .where(models.Lesson.course_id == course_id)
+            .order_by(models.Lesson.order_index, models.Lesson.id)
+        )
+        .scalars()
+        .all()
+    )
+
+    next_lesson = None
+    for index, lesson in enumerate(lessons):
+        if lesson.id == current_lesson.id and index + 1 < len(lessons):
+            next_lesson = lessons[index + 1]
+            break
+
+    if next_lesson is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No next lesson")
+
+    return _build_lesson_detail(db, next_lesson, current_user.id)
+
+
+@admin_router.post("/lessons", response_model=schemas.LessonDetail, status_code=status.HTTP_201_CREATED)
+async def create_lesson(
+    title: str = Form(...),
+    description: str = Form(...),
+    course_id: int = Form(...),
+    notes: str = Form(""),
+    order_index: Optional[int] = Form(None),
+    video_file: Optional[UploadFile] = None,
+    db: Session = Depends(get_db),
+):
+    course = db.get(models.Course, course_id)
+    if course is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+
+    video_url: Optional[str] = None
+    if video_file and video_file.filename:
+        extension = Path(video_file.filename).suffix
+        unique_name = f"{uuid4().hex}{extension}"
+        destination = VIDEO_UPLOAD_DIR / unique_name
+        await video_file.seek(0)
+        with destination.open("wb") as buffer:
+            shutil.copyfileobj(video_file.file, buffer)
+        video_url = f"/videos/{unique_name}"
+
+    if order_index is None:
+        max_order = (
+            db.execute(
+                select(models.Lesson.order_index)
+                .where(models.Lesson.course_id == course_id)
+                .order_by(models.Lesson.order_index.desc())
+            )
+            .scalars()
+            .first()
+        )
+        order_index = (max_order or 0) + 1
+
+    lesson = models.Lesson(
+        title=title,
+        description=description,
+        course_id=course_id,
+        notes=notes,
+        video_url=video_url,
+        order_index=order_index,
+    )
+    db.add(lesson)
+    db.commit()
+    db.refresh(lesson)
+
+    return _build_lesson_detail(db, lesson, None)
+
+
+@admin_router.patch("/lessons/{lesson_id}", response_model=schemas.LessonDetail)
+async def update_lesson(
+    lesson_id: int,
+    title: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    notes: Optional[str] = Form(None),
+    course_id: Optional[int] = Form(None),
+    order_index: Optional[int] = Form(None),
+    video_file: Optional[UploadFile] = None,
+    db: Session = Depends(get_db),
+):
+    lesson = db.get(models.Lesson, lesson_id)
+    if lesson is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lesson not found")
+
+    if course_id is not None and course_id != lesson.course_id:
+        course = db.get(models.Course, course_id)
+        if course is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+        lesson.course_id = course_id
+
+    if title is not None:
+        lesson.title = title
+    if description is not None:
+        lesson.description = description
+    if notes is not None:
+        lesson.notes = notes
+    if order_index is not None:
+        lesson.order_index = order_index
+
+    if video_file and video_file.filename:
+        extension = Path(video_file.filename).suffix
+        unique_name = f"{uuid4().hex}{extension}"
+        destination = VIDEO_UPLOAD_DIR / unique_name
+        await video_file.seek(0)
+        with destination.open("wb") as buffer:
+            shutil.copyfileobj(video_file.file, buffer)
+        lesson.video_url = f"/videos/{unique_name}"
+
+    db.add(lesson)
+    db.commit()
+    db.refresh(lesson)
+
+    return _build_lesson_detail(db, lesson, None)
+
+
+@admin_router.delete("/lessons/{lesson_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_lesson(lesson_id: int, db: Session = Depends(get_db)):
+    lesson = db.get(models.Lesson, lesson_id)
+    if lesson is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lesson not found")
+
+    db.delete(lesson)
+    db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _video_headers(file_size: int) -> Dict[str, str]:
+    return {
+        "Accept-Ranges": "bytes",
+        "Content-Length": str(file_size),
+    }
+
+
+@video_router.head("/{filename}")
+async def head_video(filename: str):
+    file_path = VIDEO_UPLOAD_DIR / filename
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video not found")
+    file_size = file_path.stat().st_size
+    media_type, _ = mimetypes.guess_type(str(file_path))
+    media_type = media_type or "video/mp4"
+    return Response(status_code=status.HTTP_200_OK, media_type=media_type, headers=_video_headers(file_size))
+
+
+@video_router.get("/{filename}")
+async def stream_video(filename: str, request: Request):
+    file_path = VIDEO_UPLOAD_DIR / filename
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Video not found")
+
+    file_size = file_path.stat().st_size
+    range_header = request.headers.get("range")
+    media_type, _ = mimetypes.guess_type(str(file_path))
+    media_type = media_type or "video/mp4"
+
+    def iter_file(start: int = 0, end: Optional[int] = None):
+        with file_path.open("rb") as video:
+            video.seek(start)
+            remaining = (end - start + 1) if end is not None else None
+            chunk_size = 1024 * 1024
+            while True:
+                if remaining is not None and remaining <= 0:
+                    break
+                read_size = chunk_size if remaining is None else min(chunk_size, remaining)
+                data = video.read(read_size)
+                if not data:
+                    break
+                if remaining is not None:
+                    remaining -= len(data)
+                yield data
+
+    if range_header:
+        bytes_unit, _, range_value = range_header.partition("=")
+        if bytes_unit.strip().lower() != "bytes":
+            raise HTTPException(status_code=status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE)
+        start_str, _, end_str = range_value.partition("-")
+        try:
+            start = int(start_str)
+        except ValueError:
+            start = 0
+        end = int(end_str) if end_str else file_size - 1
+        if start >= file_size or end >= file_size:
+            raise HTTPException(status_code=status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE)
+        content_length = end - start + 1
+        headers = _video_headers(file_size)
+        headers.update({
+            "Content-Range": f"bytes {start}-{end}/{file_size}",
+            "Content-Length": str(content_length),
+        })
+        return StreamingResponse(
+            iter_file(start, end),
+            status_code=status.HTTP_206_PARTIAL_CONTENT,
+            media_type=media_type,
+            headers=headers,
+        )
+
+    headers = _video_headers(file_size)
+    return StreamingResponse(iter_file(), media_type=media_type, headers=headers)
 
 
 @project_router.get("", response_model=List[schemas.Project])
@@ -616,6 +858,111 @@ def _sync_course_completion(db: Session, student_id: int, course_id: int) -> Non
     db.commit()
 
 
+def _build_lesson_detail(
+    db: Session, lesson: models.Lesson, student_id: Optional[int]
+) -> schemas.LessonDetail:
+    exercises = (
+        db.execute(
+            select(models.Exercise)
+            .where(models.Exercise.lesson_id == lesson.id)
+            .order_by(models.Exercise.order_index, models.Exercise.id)
+        )
+        .scalars()
+        .all()
+    )
+
+    exercise_ids = [exercise.id for exercise in exercises]
+
+    tests_count: Dict[int, int] = {}
+    if exercise_ids:
+        test_rows = (
+            db.execute(
+                select(models.ExerciseTest.exercise_id, models.ExerciseTest.id).where(
+                    models.ExerciseTest.exercise_id.in_(exercise_ids)
+                )
+            )
+            .all()
+        )
+        for exercise_id, _ in test_rows:
+            tests_count[exercise_id] = tests_count.get(exercise_id, 0) + 1
+
+    exercise_progress_map: Dict[int, models.ExerciseProgress] = {}
+    if exercise_ids and student_id is not None:
+        exercise_progress_entries = (
+            db.execute(
+                select(models.ExerciseProgress).where(
+                    and_(
+                        models.ExerciseProgress.student_id == student_id,
+                        models.ExerciseProgress.exercise_id.in_(exercise_ids),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        exercise_progress_map = {entry.exercise_id: entry for entry in exercise_progress_entries}
+
+    lesson_progress = None
+    if student_id is not None:
+        lesson_progress = (
+            db.execute(
+                select(models.LessonProgress).where(
+                    and_(
+                        models.LessonProgress.student_id == student_id,
+                        models.LessonProgress.lesson_id == lesson.id,
+                    )
+                )
+            )
+            .scalar_one_or_none()
+        )
+
+    exercise_details: List[schemas.ExerciseDetail] = []
+    for exercise in exercises:
+        progress_entry = exercise_progress_map.get(exercise.id)
+        exercise_details.append(
+            schemas.ExerciseDetail(
+                id=exercise.id,
+                lesson_id=exercise.lesson_id,
+                title=exercise.title,
+                instructions=exercise.instructions,
+                starter_code=exercise.starter_code or {},
+                default_language=exercise.default_language,
+                order_index=exercise.order_index,
+                tests_count=tests_count.get(exercise.id, 0),
+                progress=(
+                    schemas.ExerciseProgressInfo(
+                        status=progress_entry.status,
+                        completed_at=progress_entry.completed_at,
+                        last_run_output=progress_entry.last_run_output,
+                        last_error=progress_entry.last_error,
+                        last_language=progress_entry.last_language,
+                    )
+                    if progress_entry
+                    else None
+                ),
+            )
+        )
+
+    return schemas.LessonDetail(
+        id=lesson.id,
+        course_id=lesson.course_id,
+        title=lesson.title,
+        description=lesson.description,
+        video_url=lesson.video_url,
+        notes=lesson.notes,
+        order_index=lesson.order_index,
+        progress=(
+            schemas.LessonProgressInfo(
+                completed=lesson_progress.completed,
+                completed_at=lesson_progress.completed_at,
+            )
+            if lesson_progress
+            else None
+        ),
+        exercises=exercise_details,
+    )
+
+
 def _build_course_summary(
     course: models.Course,
     lessons: List[schemas.LessonDetail],
@@ -641,4 +988,3 @@ def _build_course_summary(
         exercises_completed=exercises_completed,
         exercises_total=exercises_total,
     )
-
