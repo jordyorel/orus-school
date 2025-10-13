@@ -69,7 +69,7 @@ const yearOneSeeds: Record<string, CourseSeed> = {
             lesson_id: 10101,
             title: "Warm up: greet Orus",
             instructions: `
-              <p>Print <code>Hello, Orus!</code> followed by a newline.</p>
+              <p>Print <code>Hello world</code> followed by a newline.</p>
               <p>Compile with <code>cc main.c</code> and run <code>./a.out</code>.</p>
             `,
             starter_code: {
@@ -77,7 +77,7 @@ const yearOneSeeds: Record<string, CourseSeed> = {
 
 int main(void)
 {
-    // TODO: print the greeting and return 0
+    // TODO: print Hello world and return 0
     return 0;
 }
 `,
