@@ -1,12 +1,6 @@
-🔥 Excellent, Jordy. This is the *perfect moment* to rebuild your platform properly — based on everything we’ve discussed (42-style learning, AlgoExpert feel, Codewars playground, and your educational goals).
-
-Let’s design it from **zero** — no technical shortcuts, no confusion — a clean, well-structured, scalable system you can start implementing immediately.
-
----
-
 # 🧭 Phase 0 — Vision & Core Concept
 
-Your platform will be the **Orus School** — a modern coding education platform built around three pillars:
+My platform will be the **Orus School** — a modern coding education platform built around three pillars:
 
 1. **Learning Hub** — structured lessons with videos, reading notes, and interactive exercises.
 2. **Playground** — in-browser compiler and sandbox for real-time code execution.
@@ -14,7 +8,7 @@ Your platform will be the **Orus School** — a modern coding education platform
 
 Think of it as a blend of:
 
-> 🧱 **42 + Codewars + AlgoExpert**, simplified for your own school.
+> 🧱 **42 + Codewars **, simplified for my own school.
 
 ---
 
@@ -88,6 +82,73 @@ Introduce the platform, explain the learning model, and encourage sign-up.
 * Testimonials / features grid
 * Footer (contact, links)
 
+┌──────────────────────────────────────────────────────────────────────────┐
+│ [ ORUS SCHOOL LOGO (button) ]           [ Sign In ] [ Get Started ]      │
+│──────────────────────────────────────────────────────────────────────────│
+│                                                                          │
+│      🚀 Learn to Think, Code, and Build Like a Software Engineer.         │
+│                                                                          │
+│  Master C, algorithms, and software engineering through hands-on coding, │
+│  guided projects, and Orus-powered challenges.                           │
+│                                                                          │
+│  [ Start Learning ]   [ Explore Curriculum ]                             │
+│                                                                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│                            🧠 What You’ll Learn                           │
+│                                                                          │
+│  [ 💻 Programming in C ] [ 🧮 Algorithms & Data Structures ]              │
+│  [ 🧩 Problem Solving Skills ] [ 🏗️ Software Engineering Foundations ]    │
+│  [ ⚙️ Memory & Systems ] [ 🤖 Logic & Analytical Thinking ]               │
+│                                                                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│                        🎯 Why Orus School Is Different                    │
+│                                                                          │
+│  ┌──────────────────────┬────────────────────────┬──────────────────────┐ │
+│  │ 🧩 Interactive Editor │ 📹 Guided Video Lessons │ 🧠 Project-Based Learning │ │
+│  │ Code directly online │ Learn at your pace     │ Build real solutions     │ │
+│  ├──────────────────────┼────────────────────────┼──────────────────────┤ │
+│  │ 🧪 Auto-Graded Tests  │ 🕹️ Live Feedback       │ 📈 Progress Tracking     │ │
+│  │ Instant evaluation   │ See your errors live   │ Unlock next levels      │ │
+│  └──────────────────────┴────────────────────────┴──────────────────────┘ │
+│                                                                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│                           🧭 Year 1 Curriculum                            │
+│                                                                          │
+│  • C Basics — Syntax, Loops, and Functions                               │
+│  • Shell & Git — Command Line and Version Control                        │
+│  • Memory & Pointers — Deep Understanding of How Computers Work          │
+│  • Algorithms — Sorting, Searching, and Logic                            │
+│  • Problem Solving Bootcamp — Challenges & Competitions                  │
+│  • Software Engineering — Clean Code, Architecture, Collaboration        │
+│  • Final Project — Build a Mini Compiler or Library (libft)              │
+│                                                                          │
+│  [ View Curriculum ]                                                     │
+│                                                                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│                          💡 How Learning Works                            │
+│                                                                          │
+│  1️⃣ Watch or read lessons (video + notes)                               │
+│  2️⃣ Practice directly in the playground                                 │
+│  3️⃣ Solve real challenges                                               │
+│  4️⃣ Get instant feedback                                                │
+│  5️⃣ Unlock the next concept                                            │
+│                                                                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│                    🌟 From Beginner to Engineer                           │
+│                                                                          │
+│  Orus School doesn’t just teach you how to code. It trains you to think, │
+│  debug, and build like a software engineer — mastering logic, design,    │
+│  and resilience.                                                         │
+│                                                                          │
+│  💬 “We don’t memorize syntax. We solve problems.”                       │
+│                                                                          │
+│  [ Join the Beta ] [ Log In ]                                            │
+│                                                                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│  © 2025 Orus School — Built with ❤️ in Congo. [About] [Contact] [Terms]  │
+└──────────────────────────────────────────────────────────────────────────┘
+
+
 ---
 
 ## **2. Login / Register**
@@ -99,6 +160,182 @@ Introduce the platform, explain the learning model, and encourage sign-up.
 * “Forgot password?” (later)
 * Auto-redirect to dashboard
 
+
+# 🔐 **ORUS SCHOOL — LOGIN PAGE SPECIFICATION**
+
+## 🎨 **Visual Identity**
+
+* **Theme:** Dark (matches the rest of Orus School)
+* **Mood:** Calm, focused, “engineering console” aesthetic
+* **Font:** `Inter` / `Satoshi`
+* **Accent color:** `#1E90FF` (Orus Blue)
+* **Background:** `linear-gradient(to bottom right, #0D1117, #010409)`
+* **Style:** Centered panel, soft glow, VSCode login feel
+
+---
+
+## 🧱 **PAGE STRUCTURE**
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│ [ Orus School Logo ]                                                      │
+│────────────────────────────────────────────────────────────────────────────│
+│                                                                            │
+│     🔐 Sign In to Continue Your Learning                                   │
+│                                                                            │
+│     [ Email Address __________________________ ]                           │
+│     [ Password _______________________________ ]                           │
+│                                                                            │
+│     [ ☐ Remember Me ]               [ Forgot Password? ]                   │
+│                                                                            │
+│     [ 🔵 Log In ]                                                         │
+│                                                                            │
+│     ───────────── or ─────────────                                          │
+│                                                                            │
+│     New here? [ Create an Account ]                                        │
+│                                                                            │
+│────────────────────────────────────────────────────────────────────────────│
+│  © 2025 Orus School. Built with ❤️ in Congo.                              │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🧠 **PAGE CONTENT (Detailed)**
+
+### 🔹 Header
+
+* Minimal **Orus School logo** (top center or left corner)
+* Optional: small subtext →
+  *"Your journey to becoming a software engineer starts here."*
+
+---
+
+### 🔹 Main Card (Centered Panel)
+
+A floating card in the center of the screen.
+
+**Card style:**
+
+* `bg-[#0F172A]` (dark navy)
+* `border border-gray-800`
+* `rounded-2xl`
+* `shadow-lg shadow-blue-900/30`
+* `p-8` with vertical layout
+
+**Inside:**
+
+* Title:
+
+  > “Welcome back 👋”
+* Subtitle:
+
+  > “Log in to continue your progress.”
+
+---
+
+### 🔹 Form Fields
+
+| Field               | Type       | Notes                            |
+| ------------------- | ---------- | -------------------------------- |
+| **Email**           | text/email | Must validate format             |
+| **Password**        | password   | With toggle visibility icon      |
+| **Remember Me**     | checkbox   | Stored locally (optional)        |
+| **Forgot Password** | link       | Leads to `/auth/forgot` (future) |
+
+---
+
+### 🔹 Buttons
+
+| Button                                          | Description                                  |
+| ----------------------------------------------- | -------------------------------------------- |
+| **🔵 Log In**                                   | Primary CTA; full width; glows blue on hover |
+| **⚪ Create an Account**                         | Text link; smaller font; no border           |
+| **Optional:** Login with GitHub/Google (future) | Small secondary buttons                      |
+
+---
+
+### 🔹 Footer
+
+> “© 2025 Orus School — Built with ❤️ in Congo.”
+
+Small, centered, muted gray text (`text-gray-500 text-xs`).
+
+---
+
+## 🧭 **INTERACTIONS**
+
+| Event                | Behavior                                         |
+| -------------------- | ------------------------------------------------ |
+| ✅ Successful login   | Redirects to `/dashboard`                        |
+| ❌ Failed login       | Red error alert under password                   |
+| ⏳ Loading            | Button changes to `[ Logging in… ]` with spinner |
+| 🌙 Dark Mode         | Default                                          |
+| ⌨️ Keyboard Shortcut | Press `Enter` to submit                          |
+
+---
+
+## 🧩 **SIGN UP PAGE VARIANT**
+
+Same layout — slightly modified content:
+
+### Title
+
+> “Create your Orus School Account”
+
+### Subtitle
+
+> “Start coding, learning, and building your future.”
+
+### Fields
+
+| Field            | Type     |
+| ---------------- | -------- |
+| Name             | text     |
+| Email            | email    |
+| Password         | password |
+| Confirm Password | password |
+
+### Button
+
+> [ Create Account ] (Primary blue button)
+
+### Bottom Text
+
+> Already have an account? [ Log In ]
+
+---
+
+## ⚙️ **BACKEND API EXPECTATIONS**
+
+| Endpoint             | Method | Description                         |
+| -------------------- | ------ | ----------------------------------- |
+| `/api/auth/login`    | POST   | Accepts `{ email, password }`       |
+| `/api/auth/register` | POST   | Accepts `{ name, email, password }` |
+| `/api/auth/me`       | GET    | Returns logged-in user              |
+| `/api/auth/logout`   | POST   | Ends session                        |
+| `/api/auth/forgot`   | POST   | Sends reset email (optional)        |
+
+---
+
+## 🧠 **ADDITIONAL TOUCHES**
+
+* Small glowing **cursor animation** in input fields
+* Password field icon (eye) to toggle visibility
+* Gentle “shake” animation if login fails
+* Background accent animation: faint floating code snippets (optional)
+
+---
+
+## ✨ **Example Tagline (Top of Login Page)**
+
+> “Every engineer starts somewhere. Start here.”
+
+or
+
+> “Welcome back — let’s build something new today.”
+
+
 ---
 
 ## **3. Dashboard (`/dashboard`)**
@@ -106,7 +343,7 @@ Introduce the platform, explain the learning model, and encourage sign-up.
 ### Layout
 
 * Welcome message
-* Global progress bar (e.g. “36% of Year 1 completed”)
+* Global progress bar
 * Current course shortcut
 * Announcements panel
 * Achievements (badges)
@@ -161,16 +398,27 @@ Right: preview or “Start Course” button
 
 👉 **This is the heart of the platform — inspired by Codewars & AlgoExpert**
 
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│ Header: Course title | Lesson title | Progress bar | Avatar              │
-├──────────────────────────────────────────────────────────────────────────┤
-│ LEFT SIDE (Tabs)                           | RIGHT SIDE (Code Playground) │
-│ [🎥 Video] Player (uploaded mp4)           | Monaco Editor (C/Python)    │
-│ [📘 Notes] Markdown formatted content      | Run / Test / Submit buttons │
-│ [💡 Exercise] Problem prompt + examples    | Output console (resizable)  │
-│ [➡️ Next Lesson] button                    |                              │
-└──────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│ ORUS School                                    |   Language: C/python     |   Avatar (●)│
+├────────────────────────────────────────────────┴────────────────────────────────────────┤
+│                                VERTICAL DIVIDER (fixed / resizable)                     │
+│                                            |                                            │
+│  LEFT PANE (Lesson)                        │  RIGHT PANE (Playground)                  │
+│────────────────────────────────────────────┼───────────────────────────────────────────│
+│ Tabs: [ Course ] [ Video ] [ exercise ]    │  ┌───────────────────────────────────────┐ │
+│────────────────────────────────────────────│  │                            [ Run ▶ ]  │
+│ Active Tab (Markdown or Video)             │  └───────────────────────────────────────┘ │
+│  • Text/course area is scrollable         │  Monaco Editor (VS Code dark theme)        │
+│  • Does NOT affect right pane              │  • Full height                             │
+│                                            │  • Autosave                                │
+│────────────────────────────────────────────┼───────────────────────────────────────────│
+│ 🧪 Test Panel (READ-ONLY)                  │  💻 Output Console (stdout / stderr)       │
+│  • Sample tests / expected output          │  • Sticky auto-scroll                      │
+│  • Always visible at the bottom            │  • Independent from left pane               │
+│─────────────────────────────────────────────┼────────────────────────────────────────────│
+│                           [ Next Lesson → ] │                   [ 🧪 Test ][ ✅ Submit ]  │
+└─────────────────────────────────────────────┴────────────────────────────────────────────┘
+
 ```
 
 ### Behavior
