@@ -1,3 +1,0 @@
-# Persist the SQLite database on the host without committing it.
-*.db
-*.sqlite3
