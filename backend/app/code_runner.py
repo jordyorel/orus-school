@@ -52,13 +52,22 @@ def run_code(language: str, code: str, stdin: Optional[str] = None) -> Dict[str,
 
         compile_cmd = cast(Optional[List[str]], config.get("compile"))
         if compile_cmd:
-            compiled = subprocess.run(
-                _format_command(compile_cmd, source=source_path, binary=binary_path),
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=workdir,
-            )
+            try:
+                compiled = subprocess.run(
+                    _format_command(compile_cmd, source=source_path, binary=binary_path),
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                    cwd=workdir,
+                )
+            except FileNotFoundError as exc:
+                missing = exc.filename or compile_cmd[0]
+                return {
+                    "stdout": "",
+                    "stderr": f"Command not found: {missing}",
+                    "exit_code": 127,
+                    "execution_time": 0.0,
+                }
             if compiled.returncode != 0:
                 return {
                     "stdout": compiled.stdout,
@@ -82,6 +91,15 @@ def run_code(language: str, code: str, stdin: Optional[str] = None) -> Dict[str,
                 "stdout": executed.stdout,
                 "stderr": executed.stderr,
                 "exit_code": executed.returncode,
+                "execution_time": duration,
+            }
+        except FileNotFoundError as exc:
+            duration = time.perf_counter() - start
+            missing = exc.filename or run_cmd[0]
+            return {
+                "stdout": "",
+                "stderr": f"Command not found: {missing}",
+                "exit_code": 127,
                 "execution_time": duration,
             }
         except subprocess.TimeoutExpired as exc:
