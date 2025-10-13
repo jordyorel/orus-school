@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: theme("fontFamily.sans");
+  background: radial-gradient(circle at top left, #111827 0%, #020617 60%);
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+}
