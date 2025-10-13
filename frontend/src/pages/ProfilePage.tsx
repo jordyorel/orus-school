@@ -1,13 +1,25 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Avatar from "../components/Avatar";
 import InfoCard from "../components/InfoCard";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { getCourseBySlug } from "../data/courseDetails";
 
 const ProfilePage = () => {
   const { student, logout } = useAuth();
   const navigate = useNavigate();
+  const enrolledCourse = getCourseBySlug("c-foundations");
+
+  const totalLessons = enrolledCourse?.lessons.length ?? 0;
+  const completedLessons = enrolledCourse
+    ? enrolledCourse.lessons.filter((lesson) => lesson.status === "completed").length
+    : 0;
+  const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+  const nextLesson = enrolledCourse?.lessons.find((lesson) => lesson.status === "available") ??
+    enrolledCourse?.lessons[0];
+  const hasStartedCourse = completedLessons > 0;
+  const resumeCtaLabel = hasStartedCourse ? "Resume where you left off" : "Start learning";
 
   if (!student) {
     return (
@@ -49,6 +61,39 @@ const ProfilePage = () => {
               include roadmap progress, mentor notes, and actionable next steps tailored just for you.
             </p>
           </div>
+          {enrolledCourse && (
+            <div className="rounded-3xl border border-electric/30 bg-electric/10 p-8 shadow-2xl shadow-electric/20">
+              <p className="text-xs uppercase tracking-[0.25em] text-electric-light">Your current track</p>
+              <h3 className="mt-3 text-2xl font-semibold text-white">{enrolledCourse.title}</h3>
+              <p className="mt-3 text-sm text-gray-200">{enrolledCourse.tagline}</p>
+              <div className="mt-6 space-y-3 text-sm text-gray-200">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-300">Progress</p>
+                  <div className="mt-2 h-2 rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-electric to-electric-light"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-gray-300">
+                    {completedLessons} of {totalLessons} lessons completed · {progress}%
+                  </p>
+                </div>
+                {nextLesson && (
+                  <p className="text-xs text-gray-200">
+                    {hasStartedCourse ? "Next up:" : "You’ll start with:"}{" "}
+                    <span className="text-electric-light">{nextLesson.title}</span>
+                  </p>
+                )}
+              </div>
+              <Link
+                to={`/course/${enrolledCourse.slug}`}
+                className="mt-6 inline-flex items-center justify-center rounded-full bg-electric px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-electric/30 transition hover:bg-electric-light"
+              >
+                {resumeCtaLabel}
+              </Link>
+            </div>
+          )}
           <div className="grid gap-6 md:grid-cols-2">
             <InfoCard label="Full name" value={student.fullName} />
             <InfoCard label="Email" value={student.email} />

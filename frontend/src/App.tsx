@@ -5,6 +5,7 @@ import LoginPage from "./pages/LoginPage";
 import LogoutPage from "./pages/LogoutPage";
 import ProfilePage from "./pages/ProfilePage";
 import RegisterPage from "./pages/RegisterPage";
+import CoursePage from "./pages/CoursePage";
 
 const App = () => {
   return (
@@ -13,6 +14,14 @@ const App = () => {
       <Route path="/landing" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route
+        path="/course/:courseSlug"
+        element={
+          <ProtectedRoute>
+            <CoursePage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/profile"
         element={
