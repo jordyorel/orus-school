@@ -19,6 +19,13 @@ const DEFAULT_PLAYGROUND_LAYOUT: [number, number] = [60, 40];
 const WORKSPACE_LAYOUT_STORAGE_KEY = "course-workspace-layout";
 const PLAYGROUND_LAYOUT_STORAGE_KEY = "course-playground-layout";
 
+type RunExecutionSummary = {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  executionTime: number;
+};
+
 const sanitizeStoredLayout = (
   value: unknown,
   fallback: [number, number]
@@ -187,8 +194,16 @@ type DemoTestCase = {
   input?: string;
 };
 
+type DemoRunResult = {
+  console: string;
+  stdout?: string;
+  stderr?: string;
+  exitCode?: number;
+  executionTime?: number;
+};
+
 type DemoSimulation = {
-  run: (code: string) => string;
+  run: (code: string) => DemoRunResult;
   tests: DemoTestCase[];
   message: string;
 };
@@ -206,16 +221,50 @@ const createRunLog = (exerciseSlug: string, lines: string[]): string => {
 };
 
 const demoExerciseSimulations: Record<number, DemoSimulation> = {
+  1010101: {
+    run: (code: string) => {
+      void code;
+      const consoleLog = createRunLog("warm_up_greet_orus", [
+        "Hello world",
+        "",
+        "Great! Your program printed to the console."
+      ]);
+      return {
+        console: consoleLog,
+        stdout: "Hello world\n",
+        stderr: "",
+        exitCode: 0,
+        executionTime: 0.05
+      };
+    },
+    tests: [
+      {
+        id: "hello-world-1",
+        title: "Test 1 · greeting",
+        stdout: 'Program output → "Hello world"',
+        expected: "Hello world",
+        passed: true
+      }
+    ],
+    message: "Console check complete! Students can now see \"Hello world\" in the output panel."
+  },
   1001: {
     run: (code: string) => {
       void code;
-      return createRunLog("ft_strlen", [
+      const consoleLog = createRunLog("ft_strlen", [
         'Input: "Orus School"',
         "Computed length: 11",
         "Remember: the null terminator is not counted in the length.",
         "",
         "Try modifying the string above to see the log update."
       ]);
+      return {
+        console: consoleLog,
+        stdout: consoleLog,
+        stderr: "",
+        exitCode: 0,
+        executionTime: 0.32
+      };
     },
     tests: [
       {
@@ -245,12 +294,19 @@ const demoExerciseSimulations: Record<number, DemoSimulation> = {
   1002: {
     run: (code: string) => {
       void code;
-      return createRunLog("ft_strcpy", [
+      const consoleLog = createRunLog("ft_strcpy", [
         'Destination buffer before: ""',
         'Copying from src: "pointers rock"',
         'Destination buffer after: "pointers rock"',
         "Return pointer matches dest ✔"
       ]);
+      return {
+        console: consoleLog,
+        stdout: consoleLog,
+        stderr: "",
+        exitCode: 0,
+        executionTime: 0.33
+      };
     },
     tests: [
       {
@@ -280,12 +336,19 @@ const demoExerciseSimulations: Record<number, DemoSimulation> = {
   1003: {
     run: (code: string) => {
       void code;
-      return createRunLog("ft_strcmp", [
+      const consoleLog = createRunLog("ft_strcmp", [
         'Comparing "apple" vs "apple" → 0',
         'Comparing "libft" vs "piscine" → -4',
         'Comparing "xyz" vs "abc" → 23',
         "Cast to unsigned char before subtracting to avoid surprises."
       ]);
+      return {
+        console: consoleLog,
+        stdout: consoleLog,
+        stderr: "",
+        exitCode: 0,
+        executionTime: 0.31
+      };
     },
     tests: [
       {
@@ -315,12 +378,19 @@ const demoExerciseSimulations: Record<number, DemoSimulation> = {
   1004: {
     run: (code: string) => {
       void code;
-      return createRunLog("ft_calloc", [
+      const consoleLog = createRunLog("ft_calloc", [
         "Request: 5 blocks × 4 bytes",
         "Allocation succeeded → pointer 0x1000",
         "Memory preview: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
         "Remember to free the buffer when you're done."
       ]);
+      return {
+        console: consoleLog,
+        stdout: consoleLog,
+        stderr: "",
+        exitCode: 0,
+        executionTime: 0.34
+      };
     },
     tests: [
       {
@@ -350,6 +420,10 @@ const demoExerciseSimulations: Record<number, DemoSimulation> = {
 };
 
 const demoExerciseHints: Record<number, string[]> = {
+  1010101: [
+    'Use printf("Hello world\\n"); to print the greeting and remember the trailing newline.',
+    "Return 0 from main so the program reports success."
+  ],
   1001: [
     "Iterate one character at a time and stop when you encounter the null terminator.",
     "Use a size_t accumulator so the function works for long strings."
@@ -394,6 +468,7 @@ const CoursePage = () => {
   const [selectedLanguage, setSelectedLanguage] = useState<string>("python");
   const [solutionTab, setSolutionTab] = useState("solution1");
   const [consoleOutput, setConsoleOutput] = useState<string>("");
+  const [lastRunExecution, setLastRunExecution] = useState<RunExecutionSummary | null>(null);
   const [outputTab, setOutputTab] = useState<"custom" | "raw">("custom");
   const [testResults, setTestResults] = useState<ConsoleResult[]>([]);
   const [runLoading, setRunLoading] = useState(false);
@@ -1230,11 +1305,51 @@ const CoursePage = () => {
             </div>
             <div className="mt-3 flex-1 overflow-hidden border border-white/10 bg-[#050d1c] p-3">
               {outputTab === "custom" ? (
-                <pre className="h-full w-full overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-200">
-                  {consoleOutput || "Run or submit code when you're ready."}
-                </pre>
+                <div className="flex h-full flex-col gap-3 text-slate-200">
+                  {lastRunExecution ? (
+                    <div className="rounded-md border border-white/10 bg-white/5 p-3 text-[11px] font-mono leading-relaxed text-white/90">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                        <span>Last run summary</span>
+                        <span>Exit code: {lastRunExecution.exitCode}</span>
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        <p>
+                          <span className="font-semibold">Execution time:</span> {lastRunExecution.executionTime.toFixed(2)}s
+                        </p>
+                        <p>
+                          <span className="font-semibold">Stdout:</span> {lastRunExecution.stdout || "(empty)"}
+                        </p>
+                        <p>
+                          <span className="font-semibold">Stderr:</span> {lastRunExecution.stderr || "(empty)"}
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+                  <pre className="flex-1 overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed">
+                    {consoleOutput || "Run or submit code when you're ready."}
+                  </pre>
+                </div>
               ) : (
                 <div className="flex h-full flex-col gap-3 overflow-y-auto text-sm text-slate-200">
+                  {lastRunExecution ? (
+                    <div className="rounded-lg border border-white/10 bg-white/5 p-4 text-xs text-slate-200">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                        <span>Most recent run</span>
+                        <span>Exit code: {lastRunExecution.exitCode}</span>
+                      </div>
+                      <div className="mt-2 space-y-1 font-mono text-[11px] text-white/90">
+                        <p>
+                          <span className="font-semibold">Execution time:</span> {lastRunExecution.executionTime.toFixed(2)}s
+                        </p>
+                        <p>
+                          <span className="font-semibold">Stdout:</span> {lastRunExecution.stdout || "(empty)"}
+                        </p>
+                        <p>
+                          <span className="font-semibold">Stderr:</span> {lastRunExecution.stderr || "(empty)"}
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
                   {testResults.length === 0 && !successMessage && !feedbackHistory ? (
                     <p className="text-slate-400">Run tests or submit code to see results here.</p>
                   ) : null}
@@ -1354,6 +1469,7 @@ const CoursePage = () => {
     (lessonId: number, options?: { updateUrl?: boolean }) => {
       setSuccessMessage(null);
       setConsoleOutput("");
+      setLastRunExecution(null);
       setTestResults([]);
       setActiveLessonId(lessonId);
       setLeftTab("lesson");
@@ -1394,6 +1510,7 @@ const CoursePage = () => {
   const handleExerciseChange = useCallback((exerciseId: number) => {
     setSuccessMessage(null);
     setConsoleOutput("");
+    setLastRunExecution(null);
     setTestResults([]);
     setActiveExerciseId(exerciseId);
     setSolutionTab("solution1");
@@ -1579,6 +1696,7 @@ const CoursePage = () => {
         });
 
         setConsoleOutput("");
+        setLastRunExecution(null);
         setTestResults([]);
         setLeftTab("lesson");
         setIsEditorFullscreen(false);
@@ -1650,17 +1768,32 @@ const CoursePage = () => {
     setRunLoading(true);
     setOutputTab("custom");
     setSuccessMessage(null);
+    setLastRunExecution(null);
     if (isDemoMode) {
       await new Promise((resolve) => setTimeout(resolve, 300));
       const simulation = demoExerciseSimulations[activeExercise.id];
-      const formatted = simulation
+      const result = simulation
         ? simulation.run(editorCode)
-        : createRunLog(activeExercise.title, [
-            "Sample execution complete.",
-            "Use the tests tab to confirm behaviour against hidden cases."
-          ]);
-      setConsoleOutput(formatted);
-      setSuccessMessage("Sample run executed in demo mode. Jump to the tests tab when you're ready to validate.");
+        : {
+            console: createRunLog(activeExercise.title, [
+              "Sample execution complete.",
+              "Use the tests tab to confirm behaviour against hidden cases."
+            ]),
+            stdout: "",
+            stderr: "",
+            exitCode: 0,
+            executionTime: 0.3
+          };
+      setConsoleOutput(result.console);
+      setLastRunExecution({
+        stdout: result.stdout ?? result.console,
+        stderr: result.stderr ?? "",
+        exitCode: result.exitCode ?? 0,
+        executionTime: result.executionTime ?? 0.3
+      });
+      setSuccessMessage(
+        simulation?.message ?? "Sample run executed in demo mode. Jump to the tests tab when you're ready to validate."
+      );
       setRunLoading(false);
       return;
     }
@@ -1672,6 +1805,28 @@ const CoursePage = () => {
       const stderrSegment = data.stderr ? `\n--- stderr ---\n${data.stderr}` : "";
       const formatted = `Exit code: ${data.exit_code}\nTime: ${data.execution_time.toFixed(2)}s\n\n${data.stdout}${stderrSegment}`;
       setConsoleOutput(formatted);
+      setLastRunExecution({
+        stdout: data.stdout ?? "",
+        stderr: data.stderr ?? "",
+        exitCode: data.exit_code,
+        executionTime: data.execution_time
+      });
+    } catch (error) {
+      console.error("Failed to run code", error);
+      let message = "We couldn't run your code. Please try again.";
+      if (isAxiosError(error)) {
+        const detail =
+          typeof error.response?.data === "string"
+            ? error.response.data
+            : (error.response?.data as { detail?: string } | undefined)?.detail;
+        if (detail) {
+          message = `We couldn't run your code: ${detail}`;
+        } else if (error.message) {
+          message = `We couldn't run your code: ${error.message}`;
+        }
+      }
+      setConsoleOutput(message);
+      setLastRunExecution(null);
     } finally {
       setRunLoading(false);
     }

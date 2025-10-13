@@ -199,6 +199,11 @@ npm install
 npm run dev
 ```
 
+Once Vite prints the local development URL (usually `http://localhost:5173`),
+open the `/playground` route in your browser to load the demo coding workspace
+without authenticating. Click **Run Code** on the warm-up exercise to simulate a
+compiler run and confirm that "Hello world" now appears in the Custom Output tab.
+
 The Vite dev server proxies API requests to `http://localhost:8000` (configured in `vite.config.ts`).
 
 ## Sample workflow
