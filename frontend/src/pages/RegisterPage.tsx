@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { CheckCircleIcon } from "@heroicons/react/24/solid";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { API_BASE_URL } from "../config";
 
 const onboardingMilestones = [
   {
@@ -44,10 +45,32 @@ const RegisterPage = () => {
     setError("");
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          full_name: fullName,
+          email,
+          password,
+          avatar_url: null,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        const message = (data && data.detail) || "We couldn’t submit your enrollment. Please try again.";
+        throw new Error(message);
+      }
+
       navigate("/login", { replace: true });
     } catch (err) {
-      setError("We couldn’t submit your enrollment. Please try again.");
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("We couldn’t submit your enrollment. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -63,9 +86,7 @@ const RegisterPage = () => {
             Join the next Orus cohort and transform the way you learn to code.
           </h1>
           <p className="mt-6 text-base text-gray-300">
-            We built Orus School to mirror how modern software teams actually work. From your first login, you’ll
-            progress through a curated roadmap of lessons, live challenges, and project reviews that follow the
-            Learn → Practice → Grow philosophy.
+            We built Orus School to mirror how modern software teams actually work. From your first login, you’ll progress through a curated roadmap of lessons, live challenges, and project reviews that follow the Learn → Practice → Grow philosophy.
           </p>
           <div className="mt-8 space-y-4">
             {valueBullets.map((bullet) => (
@@ -79,8 +100,7 @@ const RegisterPage = () => {
           <div className="mt-12 rounded-3xl border border-white/10 bg-white/5 p-6">
             <h2 className="text-lg font-semibold text-white">Your first 8 weeks at a glance</h2>
             <p className="mt-2 text-sm text-gray-400">
-              Every cohort follows the same playbook outlined in the Orus roadmap. Here’s how the first milestones
-              unfold once you enroll.
+              Every cohort follows the same playbook outlined in the Orus roadmap. Here’s how the first milestones unfold once you enroll.
             </p>
             <ul className="mt-6 space-y-5">
               {onboardingMilestones.map((milestone) => (
@@ -163,8 +183,7 @@ const RegisterPage = () => {
               <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left text-xs text-gray-400">
                 <CheckCircleIcon className="mt-0.5 h-5 w-5 flex-shrink-0 text-electric" />
                 <p>
-                  By clicking "Get started", you agree to follow the Orus honor code: stay curious, support your peers, and ship
-                  your project sprint by Week 8.
+                  By clicking "Get started", you agree to follow the Orus honor code: stay curious, support your peers, and ship your project sprint by Week 8.
                 </p>
               </div>
               {error && <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
