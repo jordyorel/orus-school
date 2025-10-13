@@ -1,9 +1,9 @@
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from ..db import get_db
-from ..models.student import Student
-from ..utils.token import decode_access_token, oauth2_scheme
+from db import get_db
+from models.student import Student
+from utils.token import decode_access_token, oauth2_scheme
 
 
 def get_current_student(
