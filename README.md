@@ -151,6 +151,26 @@ directory so that the SQLite database persists on your machine:
 docker run -p 8000:8000 -v "$(pwd)/backend/data:/app/data" orus-backend
 ```
 
+> **Want to use your local SQLite file by default?**
+> 
+> The backend automatically falls back to `backend/data/orus_school.db` when
+> `DATABASE_URL` is unset. If you previously pointed the app at a Dockerized
+> database, simply remove the `DATABASE_URL` environment variable (or set it to
+> an empty string) before starting the server:
+> 
+> ```bash
+> # macOS / Linux shells
+> unset DATABASE_URL
+> uvicorn app.main:app --reload
+> 
+> # PowerShell
+> Remove-Item Env:DATABASE_URL
+> uvicorn app.main:app --reload
+> ```
+> 
+> When running with Docker, keep the `-v "$(pwd)/backend/data:/app/data"` mount
+> so the container still writes to the same SQLite file on your host machine.
+
 The container image uses `build-essential` so the embedded compiler toolchain is available during dependency installation.
 
 Once the container is up, the FastAPI app will already be serving requests at
