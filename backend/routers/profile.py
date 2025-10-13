@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 
-from dependencies.auth import get_current_student
-from models.student import Student
-from schemas.student import StudentRead
+from ..dependencies.auth import get_current_student
+from ..models.student import Student
+from ..schemas.student import StudentRead
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
