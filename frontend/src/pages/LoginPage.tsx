@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { useAuth } from "../context/AuthContext";
 
 const dashboardHighlights = [
   "Continue your roadmap exactly where you left off",
@@ -11,6 +12,7 @@ const dashboardHighlights = [
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,10 +24,14 @@ const LoginPage = () => {
     setError("");
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      navigate("/landing", { replace: true });
+      await login(email, password);
+      navigate("/profile", { replace: true });
     } catch (err) {
-      setError("Something went wrong. Please try again.");
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -39,8 +45,7 @@ const LoginPage = () => {
           <p className="text-sm uppercase tracking-[0.3em] text-electric-light">Welcome back</p>
           <h1 className="mt-4 text-3xl font-semibold text-white sm:text-4xl">Sign in to Orus School</h1>
           <p className="mt-6 text-base text-gray-300">
-            Log in to pick up the Orus roadmap where you paused. Your dashboard orchestrates lessons, playground drills,
-            and mentor notes exactly as outlined in the learning journey.
+            Log in to pick up the Orus roadmap where you paused. Your dashboard orchestrates lessons, playground drills, and mentor notes exactly as outlined in the learning journey.
           </p>
           <div className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-6">
             <h2 className="text-sm font-semibold uppercase tracking-[0.25em] text-electric-light">Inside your dashboard</h2>
@@ -53,8 +58,7 @@ const LoginPage = () => {
               ))}
             </ul>
             <div className="mt-6 rounded-2xl border border-electric/30 bg-electric/10 px-4 py-3 text-xs text-gray-300">
-              Keep your streak alive: every completed challenge advances you toward the Week 8 project sprint highlighted
-              in the roadmap.
+              Keep your streak alive: every completed challenge advances you toward the Week 8 project sprint highlighted in the roadmap.
             </div>
           </div>
         </section>

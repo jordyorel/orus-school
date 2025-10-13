@@ -2,17 +2,20 @@ import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { useAuth } from "../context/AuthContext";
 
 const LogoutPage = () => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   useEffect(() => {
+    logout();
     const timer = setTimeout(() => {
       navigate("/landing", { replace: true });
     }, 4000);
 
     return () => clearTimeout(timer);
-  }, [navigate]);
+  }, [logout, navigate]);
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-midnight via-[#050814] to-black text-gray-200">

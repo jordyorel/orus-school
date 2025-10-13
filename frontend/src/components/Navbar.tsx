@@ -3,16 +3,20 @@ import { Disclosure, Transition } from "@headlessui/react";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Link, useLocation } from "react-router-dom";
 import clsx from "clsx";
+import { useAuth } from "../context/AuthContext";
 
 const links = [
   { name: "Home", to: "/landing" },
   { name: "Curriculum", to: "#curriculum" },
   { name: "Features", to: "#features" },
-  { name: "Contact", to: "#contact" }
+  { name: "Contact", to: "#contact" },
 ];
 
 const Navbar = () => {
   const location = useLocation();
+  const { student } = useAuth();
+  const isLoggedIn = Boolean(student);
+  const firstName = student?.fullName.split(" ")[0] ?? "Profile";
 
   return (
     <Disclosure as="nav" className="bg-midnight/90 backdrop-blur border-b border-white/10 sticky top-0 z-50">
@@ -36,18 +40,37 @@ const Navbar = () => {
                 ))}
               </div>
               <div className="hidden md:flex items-center gap-3">
-                <Link
-                  to="/login"
-                  className="rounded-full border border-white/10 px-4 py-2 text-sm text-gray-200 hover:border-electric-light hover:text-white"
-                >
-                  Sign In
-                </Link>
-                <Link
-                  to="/register"
-                  className="rounded-full bg-electric px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-electric/20 hover:bg-electric-light"
-                >
-                  Get Started
-                </Link>
+                {isLoggedIn ? (
+                  <>
+                    <Link
+                      to="/profile"
+                      className="rounded-full border border-white/10 px-4 py-2 text-sm text-gray-200 hover:border-electric-light hover:text-white"
+                    >
+                      {firstName}’s Space
+                    </Link>
+                    <Link
+                      to="/logout"
+                      className="rounded-full bg-electric px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-electric/20 hover:bg-electric-light"
+                    >
+                      Logout
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      to="/login"
+                      className="rounded-full border border-white/10 px-4 py-2 text-sm text-gray-200 hover:border-electric-light hover:text-white"
+                    >
+                      Sign In
+                    </Link>
+                    <Link
+                      to="/register"
+                      className="rounded-full bg-electric px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-electric/20 hover:bg-electric-light"
+                    >
+                      Get Started
+                    </Link>
+                  </>
+                )}
               </div>
               <div className="flex md:hidden">
                 <Disclosure.Button className="inline-flex items-center justify-center rounded-md p-2 text-gray-300 hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-electric">
@@ -82,20 +105,41 @@ const Navbar = () => {
                     {link.name}
                   </Disclosure.Button>
                 ))}
-                <Disclosure.Button
-                  as={Link}
-                  to="/login"
-                  className="block rounded-md px-3 py-2 text-base font-medium text-gray-200 hover:bg-white/10"
-                >
-                  Sign In
-                </Disclosure.Button>
-                <Disclosure.Button
-                  as={Link}
-                  to="/register"
-                  className="block rounded-md bg-electric px-3 py-2 text-base font-semibold text-white hover:bg-electric-light"
-                >
-                  Get Started
-                </Disclosure.Button>
+                {isLoggedIn ? (
+                  <>
+                    <Disclosure.Button
+                      as={Link}
+                      to="/profile"
+                      className="block rounded-md px-3 py-2 text-base font-medium text-gray-200 hover:bg-white/10"
+                    >
+                      {firstName}’s Space
+                    </Disclosure.Button>
+                    <Disclosure.Button
+                      as={Link}
+                      to="/logout"
+                      className="block rounded-md bg-electric px-3 py-2 text-base font-semibold text-white hover:bg-electric-light"
+                    >
+                      Logout
+                    </Disclosure.Button>
+                  </>
+                ) : (
+                  <>
+                    <Disclosure.Button
+                      as={Link}
+                      to="/login"
+                      className="block rounded-md px-3 py-2 text-base font-medium text-gray-200 hover:bg-white/10"
+                    >
+                      Sign In
+                    </Disclosure.Button>
+                    <Disclosure.Button
+                      as={Link}
+                      to="/register"
+                      className="block rounded-md bg-electric px-3 py-2 text-base font-semibold text-white hover:bg-electric-light"
+                    >
+                      Get Started
+                    </Disclosure.Button>
+                  </>
+                )}
               </div>
             </Disclosure.Panel>
           </Transition>
