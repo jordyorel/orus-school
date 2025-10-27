@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import Editor from "@monaco-editor/react";
 import {
@@ -41,6 +41,7 @@ const consolePlaceholder =
 const LessonPage = () => {
   const { lessonId } = useParams();
   const navigate = useNavigate();
+  const editorRef = useRef<any>(null);
 
   if (!lessonId) {
     return <Navigate to="/landing" replace />;
@@ -72,6 +73,12 @@ const LessonPage = () => {
     content.exercise.tests.map(() => "idle" as TestStatus),
   );
   const [submissionState, setSubmissionState] = useState<"idle" | "submitting" | "passed" | "failed">("idle");
+
+  const handleEditorDidMount = (editor: any) => {
+    editorRef.current = editor;
+    // Focus the editor initially
+    editor.focus();
+  };
 
   useEffect(() => {
     setActiveTab("course");
@@ -209,7 +216,7 @@ const LessonPage = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#04050c] text-gray-100">
+    <div className="flex h-screen flex-col bg-[#04050c] text-gray-100 overflow-hidden">
       <header className="flex items-center justify-between border-b border-white/10 bg-black/70 px-6 py-4 backdrop-blur">
         <div className="flex items-center gap-4">
           <Link to={`/course/${course.slug}`} className="text-sm font-semibold text-electric-light hover:text-electric">
@@ -229,12 +236,12 @@ const LessonPage = () => {
         </div>
       </header>
 
-      <div className="grid flex-1 grid-cols-1 lg:grid-cols-[1.05fr_1.45fr]">
+      <div className="grid flex-1 grid-cols-1 lg:grid-cols-[1fr_1.2fr]">
         <section className="flex h-full flex-col border-b border-white/10 bg-[#080a18] lg:border-r">
-          <div className="border-b border-white/5 px-6 py-6">
+          <div className="border-b border-white/5 px-6 py-4">
             <p className="text-xs uppercase tracking-[0.3em] text-electric-light">Lesson {lesson.title}</p>
-            <h1 className="mt-2 text-2xl font-semibold text-white">{lesson.summary}</h1>
-            <p className="mt-3 text-sm text-gray-300">Estimated time · {lesson.duration}</p>
+            <h1 className="mt-2 text-xl font-semibold text-white">{lesson.summary}</h1>
+            <p className="mt-2 text-sm text-gray-300">Estimated time · {lesson.duration}</p>
           </div>
 
           <div className="flex border-b border-white/5">
@@ -244,7 +251,7 @@ const LessonPage = () => {
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
                 className={clsx(
-                  "flex-1 px-6 py-4 text-sm font-medium transition",
+                  "flex-1 px-4 py-3 text-sm font-medium transition",
                   activeTab === tab.id
                     ? "border-b-2 border-electric text-white"
                     : "border-b border-transparent text-gray-400 hover:text-gray-200",
@@ -255,31 +262,31 @@ const LessonPage = () => {
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div className="flex-1 overflow-y-auto px-4 py-4">
             {activeTab === "course" && (
-              <div className="space-y-6 text-sm text-gray-300">
+              <div className="space-y-4 text-sm text-gray-300">
                 <p className="text-base text-gray-200">{content.intro}</p>
                 {content.courseSections.map((section) => (
-                  <div key={section.title} className="space-y-3 rounded-2xl border border-white/5 bg-white/5 p-4">
-                    <h3 className="text-lg font-semibold text-white">{section.title}</h3>
-                    <p>{section.description}</p>
+                  <div key={section.title} className="space-y-2 rounded-xl border border-white/5 bg-white/5 p-3">
+                    <h3 className="text-md font-semibold text-white">{section.title}</h3>
+                    <p className="text-sm">{section.description}</p>
                     {section.bullets && (
-                      <ul className="list-disc space-y-1 pl-5 text-sm text-gray-300">
+                      <ul className="list-disc space-y-1 pl-4 text-sm text-gray-300">
                         {section.bullets.map((bullet) => (
                           <li key={bullet}>{bullet}</li>
                         ))}
                       </ul>
                     )}
                     {section.codeSample && (
-                      <pre className="overflow-x-auto rounded-xl bg-black/60 p-4 text-xs text-gray-200">
+                      <pre className="overflow-x-auto rounded-lg bg-black/60 p-3 text-xs text-gray-200">
                         <code>{section.codeSample}</code>
                       </pre>
                     )}
                   </div>
                 ))}
-                <div className="rounded-2xl border border-electric/30 bg-electric/10 p-4">
+                <div className="rounded-xl border border-electric/30 bg-electric/10 p-3">
                   <h3 className="text-sm font-semibold text-electric-light">Resources</h3>
-                  <ul className="mt-3 space-y-2 text-sm">
+                  <ul className="mt-2 space-y-1 text-sm">
                     {content.resources.map((resource) => (
                       <li key={resource.href}>
                         <a
@@ -298,8 +305,8 @@ const LessonPage = () => {
             )}
 
             {activeTab === "video" && (
-              <div className="space-y-5">
-                <div className="aspect-video overflow-hidden rounded-3xl border border-white/10 shadow-xl shadow-black/40">
+              <div className="space-y-4">
+                <div className="aspect-video overflow-hidden rounded-2xl border border-white/10 shadow-xl shadow-black/40">
                   <iframe
                     src={content.videoUrl}
                     title={`${lesson.title} preview`}
@@ -316,22 +323,22 @@ const LessonPage = () => {
             )}
 
             {activeTab === "exercise" && (
-              <div className="space-y-6 text-sm text-gray-300">
+              <div className="space-y-4 text-sm text-gray-300">
                 <div>
-                  <h3 className="text-lg font-semibold text-white">Your mission</h3>
-                  <p className="mt-2 text-sm text-gray-200">{content.exercise.prompt}</p>
+                  <h3 className="text-md font-semibold text-white">Your mission</h3>
+                  <p className="mt-1 text-sm text-gray-200">{content.exercise.prompt}</p>
                 </div>
                 <div>
                   <h4 className="text-xs uppercase tracking-[0.3em] text-electric-light">Objectives</h4>
-                  <ul className="mt-3 list-disc space-y-2 pl-5">
+                  <ul className="mt-2 list-disc space-y-1 pl-4">
                     {content.exercise.objectives.map((objective) => (
                       <li key={objective}>{objective}</li>
                     ))}
                   </ul>
                 </div>
-                <div className="rounded-2xl border border-white/5 bg-black/40 p-4 text-xs text-gray-300">
+                <div className="rounded-xl border border-white/5 bg-black/40 p-3 text-xs text-gray-300">
                   <p className="font-semibold text-gray-200">Starter files</p>
-                  <p className="mt-2">
+                  <p className="mt-1">
                     We load language-specific boilerplate in the playground. Switch languages to compare implementations or port
                     your solution.
                   </p>
@@ -340,22 +347,22 @@ const LessonPage = () => {
             )}
           </div>
 
-          <div className="space-y-4 border-t border-white/5 bg-black/50 px-6 py-6">
+          <div className="space-y-3 border-t border-white/5 bg-black/50 px-4 py-4">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-gray-300">Test panel</h2>
               <span className="text-xs text-gray-500">Read only</span>
             </div>
-            <ul className="space-y-3 text-sm text-gray-300">
+            <ul className="space-y-2 text-sm text-gray-300">
               {content.exercise.tests.map((test, index) => {
                 const status = testStatuses[index] ?? "idle";
                 const { icon: StatusIcon, className, label } = testStatusStyles[status];
                 return (
-                  <li key={test.id} className="flex items-start gap-3 rounded-2xl border border-white/5 bg-black/40 p-4">
-                    <StatusIcon className={clsx("mt-0.5 h-5 w-5", className)} />
+                  <li key={test.id} className="flex items-start gap-2 rounded-xl border border-white/5 bg-black/40 p-3">
+                    <StatusIcon className={clsx("mt-0.5 h-4 w-4", className)} />
                     <div className="space-y-1">
                       <p className="text-sm font-semibold text-white">{test.name}</p>
                       <p className="text-xs text-gray-400">{test.description}</p>
-                      <div className="flex flex-wrap gap-4 text-[11px] uppercase tracking-[0.25em] text-gray-500">
+                      <div className="flex flex-wrap gap-3 text-[10px] uppercase tracking-[0.25em] text-gray-500">
                         <span>Status · {label}</span>
                         {test.inputExample && <span>Input · {test.inputExample}</span>}
                         {test.expectedOutput && <span>Output · {test.expectedOutput}</span>}
@@ -369,27 +376,28 @@ const LessonPage = () => {
               <button
                 type="button"
                 onClick={() => navigate(`/lesson/${nextLesson.id}`)}
-                className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-electric hover:text-electric"
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-white transition hover:border-electric hover:text-electric"
               >
                 Next lesson
-                <ArrowRightIcon className="h-4 w-4" />
+                <ArrowRightIcon className="h-3 w-3" />
               </button>
             )}
           </div>
         </section>
 
-        <section className="flex h-full flex-col border-t border-white/10 bg-[#040610] lg:border-t-0">
-          <div className="flex items-center justify-between border-b border-white/5 px-6 py-4">
+        {/* Codewars-style Playground Section */}
+        <section className="flex h-full flex-col bg-gray-900 border-l border-gray-700">
+          {/* Playground Header */}
+          <div className="flex items-center justify-between border-b border-gray-700 bg-gray-800 px-4 py-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-electric-light">Playground</p>
-              <h2 className="text-lg font-semibold text-white">Code directly in the browser</h2>
+              <h2 className="text-md font-bold text-white">Codewars Playground</h2>
+              <p className="text-xs text-gray-400">Solve the challenge in your preferred language</p>
             </div>
-            <div className="flex items-center gap-3">
-              <label className="text-xs uppercase tracking-[0.2em] text-gray-400">Language</label>
+            <div className="flex items-center gap-2">
               <select
                 value={language}
                 onChange={(event) => setLanguage(event.target.value as typeof language)}
-                className="rounded-full border border-white/10 bg-black/60 px-3 py-1 text-sm text-gray-200 focus:border-electric focus:outline-none"
+                className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-500"
               >
                 {languages.map((lang) => (
                   <option key={lang} value={lang}>
@@ -401,66 +409,87 @@ const LessonPage = () => {
                 type="button"
                 onClick={() => handleExecute("run")}
                 disabled={isRunning}
-                className="inline-flex items-center gap-2 rounded-full bg-electric px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-electric/30 transition hover:bg-electric-light disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex items-center space-x-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 px-2 py-1 rounded text-xs font-medium text-white transition-colors"
               >
-                <PlayCircleIcon className="h-5 w-5" />
-                Run
+                <PlayCircleIcon className="h-3 w-3" />
+                <span>Run Code</span>
               </button>
             </div>
           </div>
 
-          <div className="flex-1 overflow-hidden">
-            <Editor
-              height="100%"
-              language={monacoLanguage}
-              theme="vs-dark"
-              value={currentCode}
-              onChange={updateCode}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 14,
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-              }}
-            />
+          {/* Code Editor */}
+          <div className="flex-1 flex flex-col">
+            <div className="border-b border-gray-700 p-2">
+              <h3 className="text-sm font-semibold text-white">Your Solution</h3>
+            </div>
+            <div className="flex-1" style={{ height: '300px' }}>
+              <Editor
+                height="300px"
+                language={monacoLanguage}
+                theme="vs-dark"
+                value={currentCode}
+                onChange={updateCode}
+                onMount={handleEditorDidMount}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  lineNumbers: "on",
+                  renderLineHighlight: "all",
+                  scrollbar: {
+                    vertical: "visible",
+                    horizontal: "visible",
+                  },
+                }}
+              />
+            </div>
           </div>
 
-          <div className="border-t border-white/5 bg-black/70 px-6 py-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-200">Output console</h3>
-              <span className="text-xs text-gray-500">Stdout & stderr</span>
+          {/* Console Output */}
+          <div className="border-t border-gray-700 bg-gray-800">
+            <div className="p-2 border-b border-gray-700">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-white">Output Console</h4>
+                <span className="text-xs text-gray-400">Execution Results</span>
+              </div>
             </div>
-            <pre className="mt-3 max-h-48 overflow-y-auto rounded-2xl bg-black/60 p-4 text-xs leading-relaxed text-gray-200">
+            <pre className="p-2 text-xs text-gray-300 font-mono whitespace-pre-wrap max-h-32 overflow-y-auto bg-gray-900">
               {consoleOutput}
             </pre>
           </div>
 
-          <div className="flex flex-col gap-3 border-t border-white/5 bg-black/80 px-6 py-4 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3 text-xs text-gray-400">
-              <span className="rounded-full border border-white/10 px-3 py-1 uppercase tracking-[0.25em]">
-                Status · {submissionState === "passed" ? "Complete" : submissionState === "failed" ? "Needs attention" : "In progress"}
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between border-t border-gray-700 bg-gray-800 px-4 py-3">
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                submissionState === "passed" ? "bg-green-500/20 text-green-400" :
+                submissionState === "failed" ? "bg-red-500/20 text-red-400" :
+                "bg-gray-500/20 text-gray-400"
+              }`}>
+                {submissionState === "passed" ? "✅ All Tests Passed" : 
+                 submissionState === "failed" ? "❌ Tests Failed" : 
+                 "⚡ Ready to Submit"}
               </span>
-              {submissionState === "passed" && <CheckCircleIcon className="h-5 w-5 text-emerald-400" />}
-              {submissionState === "failed" && <XCircleIcon className="h-5 w-5 text-rose-400" />}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => handleExecute("test")}
                 disabled={isRunning}
-                className="inline-flex items-center gap-2 rounded-full border border-electric/40 px-4 py-2 text-sm font-semibold text-electric-light transition hover:border-electric hover:text-electric disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex items-center space-x-1 bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-800 px-2 py-1 rounded text-xs font-medium text-white transition-colors"
               >
-                <ArrowPathIcon className="h-5 w-5" />
-                Test
+                <ArrowPathIcon className="h-3 w-3" />
+                <span>Run Tests</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleExecute("submit")}
                 disabled={isRunning}
-                className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 disabled:bg-green-800 px-2 py-1 rounded text-xs font-medium text-white transition-colors"
               >
-                <CheckCircleIcon className="h-5 w-5" />
-                Submit
+                <CheckCircleIcon className="h-3 w-3" />
+                <span>Submit</span>
               </button>
             </div>
           </div>

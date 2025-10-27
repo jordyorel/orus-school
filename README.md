@@ -15,16 +15,16 @@ that powers authentication and the student profile endpoints.
 From the repository root:
 
 ```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+python3 -m venv backend/venv
+source backend/venv/bin/activate  # Windows: backend\venv\Scripts\activate
+pip install -r backend/requirements.txt
+uvicorn backend.main:app --reload --app-dir backend
 ```
 
 The API is now available at `http://localhost:8000`. Interactive docs are
 served at `http://localhost:8000/docs` where you can explore and test each
-endpoint.
+endpoint. Data persists in the bundled SQLite database at
+`backend/students.db`, so no Docker setup is required.
 
 ### 2. Register and authenticate a student
 
@@ -51,21 +51,6 @@ such as the profile endpoint:
 curl http://localhost:8000/profile/me \
   -H "Authorization: Bearer <access_token>"
 ```
-
-### 3. Optional: Docker workflow
-
-If you prefer running the API in a container, build the image from the
-repository root and mount the `data/` directory so the SQLite database
-persists between runs:
-
-```bash
-docker build -t orus-backend backend
-docker run -p 8000:8000 -v "$(pwd)/backend/data:/app/data" orus-backend
-```
-
-> **Note:** The project targets local SQLite/Postgres databases first, so a
-> native environment is recommended for development.
-
 
 ## Frontend
 

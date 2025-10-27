@@ -21,7 +21,7 @@ Think of it as a blend of:
 | **Frontend**         | React + TypeScript + TailwindCSS | Modern UI, fast navigation, reactive state          |
 | **Backend**          | FastAPI (Python)                 | Handles authentication, course data, code execution |
 | **Database**         | SQLite / PostgreSQL              | Stores users, lessons, progress                     |
-| **Compiler Sandbox** | Docker + GCC + Python runtime    | Safe code execution for C, Python, etc.             |
+| **Compiler Sandbox** | GCC + Python runtime (local)      | Safe code execution for C, Python, etc.             |
 | **Storage**          | Local `/videos` + optional S3    | Store video lessons and resources                   |
 | **Auth**             | JWT                              | Secure login for students/admins                    |
 
@@ -606,7 +606,7 @@ Displays student stats.
 | **5. Playground integration** | Monaco + `/run` GCC execution          |
 | **6. Progress tracking**      | Lessons mark as completed              |
 | **7. UI polish**              | Tabs, draggable panels, dark theme     |
-| **8. Deploy**                 | Docker-compose deploy to VPS           |
+| **8. Deploy**                 | Manual deploy to VPS (systemd/gunicorn)|
 | **9. (Optional)**             | Add cloud video hosting + analytics    |
 
 ---
