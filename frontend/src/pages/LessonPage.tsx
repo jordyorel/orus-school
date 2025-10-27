@@ -386,7 +386,7 @@ const LessonPage = () => {
         </section>
 
         {/* Codewars-style Playground Section */}
-        <section className="flex h-full flex-col bg-gray-900 border-l border-gray-700">
+        <section className="flex h-full min-h-0 flex-col border-l border-gray-700 bg-gray-900">
           {/* Playground Header */}
           <div className="flex items-center justify-between border-b border-gray-700 bg-gray-800 px-4 py-3">
             <div>
@@ -418,13 +418,13 @@ const LessonPage = () => {
           </div>
 
           {/* Code Editor */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex flex-1 min-h-0 flex-col">
             <div className="border-b border-gray-700 p-2">
               <h3 className="text-sm font-semibold text-white">Your Solution</h3>
             </div>
-            <div className="flex-1" style={{ height: '300px' }}>
+            <div className="flex-1 min-h-[320px] overflow-hidden">
               <Editor
-                height="300px"
+                height="100%"
                 language={monacoLanguage}
                 theme="vs-dark"
                 value={currentCode}
