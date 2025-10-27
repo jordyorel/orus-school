@@ -7,6 +7,13 @@ import DifferentiatorCard from "../components/DifferentiatorCard";
 import CTAButtons from "../components/CTAButtons";
 import TestimonialCard from "../components/TestimonialCard";
 import { highlights, differentiators, curriculum, testimonials } from "../data/highlights";
+import { courseCatalog } from "../data/courseDetails";
+
+const courses = Object.values(courseCatalog);
+const defaultActiveCourseSlug =
+  courses.find((course) => course.lessons.some((lesson) => lesson.status !== "completed"))?.slug ??
+  courses[0]?.slug ??
+  "c-foundations";
 
 const LandingPage = () => {
   return (
@@ -45,6 +52,7 @@ const LandingPage = () => {
               <CTAButtons
                 primaryLabel="Start Learning"
                 primaryTo="/register"
+                authenticatedTo={`/course/${defaultActiveCourseSlug}`}
                 secondaryLabel="Explore Curriculum"
                 secondaryHref="#curriculum"
               />
