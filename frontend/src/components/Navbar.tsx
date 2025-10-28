@@ -43,6 +43,12 @@ const Navbar = () => {
                 {isLoggedIn ? (
                   <>
                     <Link
+                      to="/admin"
+                      className="rounded-full border border-electric/40 px-4 py-2 text-sm text-electric-light hover:border-electric hover:text-electric"
+                    >
+                      Admin
+                    </Link>
+                    <Link
                       to="/profile"
                       className="rounded-full border border-white/10 px-4 py-2 text-sm text-gray-200 hover:border-electric-light hover:text-white"
                     >
@@ -107,6 +113,13 @@ const Navbar = () => {
                 ))}
                 {isLoggedIn ? (
                   <>
+                    <Disclosure.Button
+                      as={Link}
+                      to="/admin"
+                      className="block rounded-md px-3 py-2 text-base font-medium text-gray-200 hover:bg-white/10"
+                    >
+                      Admin
+                    </Disclosure.Button>
                     <Disclosure.Button
                       as={Link}
                       to="/profile"
