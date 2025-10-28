@@ -305,7 +305,7 @@ export default function LessonPage() {
 
       {/* Gutters wrapper: centers content and adds top/bottom/side spacing like AlgoExpert */}
       <div className="flex-1 min-h-0">
-        <div className="mx-auto h-full w-full max-w-screen-2xl px-4 md:px-6 lg:px-8 py-4 lg:py-5">
+        <div className="mx-auto h-full w-full max-w-full px-1 sm:px-2 lg:px-3 py-1 lg:py-3">
           {/* Inset card that contains the two-pane layout */}
           <div
             ref={layoutRef}
