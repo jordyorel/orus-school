@@ -594,7 +594,7 @@ export default function LessonPage() {
                     onMount={handleEditorDidMount}
                     options={{
                       minimap: { enabled: false },
-                      fontSize: 14,
+                      fontSize: 11,
                       scrollBeyondLastLine: false,
                       automaticLayout: true,
                       lineNumbers: "on",
