@@ -24,16 +24,14 @@ type TabId = (typeof tabs)[number]["id"];
 type TestStatus = "idle" | "running" | "passed" | "failed";
 
 const testStatusStyles: Record<TestStatus, { icon: typeof CheckCircleIcon; className: string; label: string }> = {
-  idle: { icon: PlayIcon, className: "text-gray-400", label: "Ready" },
-  running: { icon: ArrowPathIcon, className: "text-electric-light animate-spin", label: "Running" },
+  idle: { icon: PlayIcon, className: "text-cw-text-muted", label: "Ready" },
+  running: { icon: ArrowPathIcon, className: "text-cw-accent-light animate-spin", label: "Running" },
   passed: { icon: CheckCircleIcon, className: "text-emerald-400", label: "Passed" },
   failed: { icon: XCircleIcon, className: "text-rose-400", label: "Failed" },
 };
 
 const monacoLanguageMap: Record<string, string> = {
   c: "c",
-  python: "python",
-  javascript: "javascript",
 };
 
 const consolePlaceholder =
@@ -65,7 +63,7 @@ const LessonPage = () => {
     if (languages.includes(content.exercise.defaultLanguage)) {
       return content.exercise.defaultLanguage;
     }
-    return (languages[0] as "c" | "python" | "javascript") ?? "c";
+    return (languages[0] as "c") ?? "c";
   }, [languages, content.exercise.defaultLanguage]);
 
   const [activeTab, setActiveTab] = useState<TabId>("course");
@@ -326,41 +324,41 @@ const LessonPage = () => {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-[#04050c] text-gray-100 overflow-hidden">
-      <header className="flex items-center justify-between border-b border-white/10 bg-black/70 px-6 py-4 backdrop-blur">
+    <div className="flex h-screen flex-col overflow-hidden bg-cw-body text-gray-100">
+      <header className="flex items-center justify-between border-b border-cw-border bg-cw-surface/90 px-6 py-4 shadow-[0_2px_0_rgba(0,0,0,0.4)] backdrop-blur">
         <div className="flex items-center gap-4">
-          <Link to={`/course/${course.slug}`} className="text-sm font-semibold text-electric-light hover:text-electric">
+          <Link to={`/course/${course.slug}`} className="text-sm font-semibold text-cw-accent-light hover:text-cw-accent">
             ORUS School
           </Link>
-          <span className="hidden text-xs text-gray-400 sm:inline">
+          <span className="hidden text-xs text-cw-text-muted sm:inline">
             {course.title} · {lesson.title}
           </span>
         </div>
         <div className="flex items-center gap-4">
-          <span className="hidden text-xs uppercase tracking-[0.2em] text-gray-400 md:block">
+          <span className="hidden text-xs uppercase tracking-[0.2em] text-cw-text-muted md:block">
             Language · {language.toUpperCase()}
           </span>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-electric/40 bg-electric/10 text-sm font-semibold text-electric-light">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-cw-border-light bg-cw-panel text-sm font-semibold text-cw-accent-light shadow-inner shadow-black/50">
             {course.title.charAt(0)}
           </div>
         </div>
       </header>
 
-      <div ref={layoutRef} className="flex flex-1 min-h-0 flex-col lg:flex-row">
+      <div ref={layoutRef} className="flex flex-1 min-h-0 flex-col bg-gradient-to-br from-cw-surface via-cw-body to-cw-panel lg:flex-row">
         <section
-          className="flex h-full min-h-0 flex-col overflow-hidden border-b border-white/10 bg-[#080a18] lg:border-r lg:flex-shrink-0"
+          className="flex h-full min-h-0 flex-col overflow-hidden border-b border-cw-border bg-cw-panel/95 lg:border-r lg:flex-shrink-0"
           style={isDesktop && Number.isFinite(leftPaneWidth)
             ? { flexBasis: `${leftPaneWidth}px`, width: `${leftPaneWidth}px` }
             : undefined}
         >
           <div className="flex-1 min-h-0 overflow-y-auto">
-            <div className="border-b border-white/5 px-6 py-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-electric-light">Lesson {lesson.title}</p>
+            <div className="border-b border-cw-border-light px-6 py-4 bg-cw-surface/90">
+              <p className="text-xs uppercase tracking-[0.3em] text-cw-accent">Lesson {lesson.title}</p>
               <h1 className="mt-2 text-xl font-semibold text-white">{lesson.summary}</h1>
-              <p className="mt-2 text-sm text-gray-300">Estimated time · {lesson.duration}</p>
+              <p className="mt-2 text-sm text-cw-text-muted">Estimated time · {lesson.duration}</p>
             </div>
 
-            <div className="flex border-b border-white/5">
+            <div className="flex border-b border-cw-border-light bg-cw-surface/60">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -369,8 +367,8 @@ const LessonPage = () => {
                   className={clsx(
                     "flex-1 px-4 py-3 text-sm font-medium transition",
                     activeTab === tab.id
-                      ? "border-b-2 border-electric text-white"
-                      : "border-b border-transparent text-gray-400 hover:text-gray-200",
+                      ? "border-b-2 border-cw-accent text-white"
+                      : "border-b border-transparent text-cw-text-muted hover:text-gray-200",
                   )}
                 >
                   {tab.label}
@@ -380,33 +378,33 @@ const LessonPage = () => {
 
             <div className="px-4 py-4">
               {activeTab === "course" && (
-                <div className="space-y-4 text-sm text-gray-300">
+                <div className="space-y-4 text-sm text-cw-text-muted">
                   <p className="text-base text-gray-200">{content.intro}</p>
                   {content.courseSections.map((section) => (
-                    <div key={section.title} className="space-y-2 rounded-xl border border-white/5 bg-white/5 p-3">
+                    <div key={section.title} className="space-y-2 rounded-xl border border-cw-border-light bg-cw-panel-alt/90 p-3 shadow-[0_8px_16px_rgba(0,0,0,0.45)]">
                       <h3 className="text-md font-semibold text-white">{section.title}</h3>
-                      <p className="text-sm">{section.description}</p>
+                      <p className="text-sm text-cw-text-muted">{section.description}</p>
                       {section.bullets && (
-                        <ul className="list-disc space-y-1 pl-4 text-sm text-gray-300">
+                        <ul className="list-disc space-y-1 pl-4 text-sm text-cw-text-muted">
                           {section.bullets.map((bullet) => (
                             <li key={bullet}>{bullet}</li>
                           ))}
                         </ul>
                       )}
                       {section.codeSample && (
-                        <pre className="overflow-x-auto rounded-lg bg-black/60 p-3 text-xs text-gray-200">
+                        <pre className="overflow-x-auto rounded-lg border border-cw-border bg-cw-surface p-3 text-xs text-gray-200 shadow-inner shadow-black/60">
                           <code>{section.codeSample}</code>
                         </pre>
                       )}
                     </div>
                   ))}
-                  <div className="rounded-xl border border-electric/30 bg-electric/10 p-3">
-                    <h3 className="text-sm font-semibold text-electric-light">Resources</h3>
-                    <ul className="mt-2 space-y-1 text-sm">
+                  <div className="rounded-xl border border-cw-border-light bg-cw-panel-alt/80 p-3">
+                    <h3 className="text-sm font-semibold text-cw-accent-light">Resources</h3>
+                    <ul className="mt-2 space-y-1 text-sm text-cw-text-muted">
                       {content.resources.map((resource) => (
                         <li key={resource.href}>
                           <a
-                            className="text-electric-light hover:text-electric"
+                            className="text-cw-accent-light hover:text-cw-accent"
                             href={resource.href}
                             target="_blank"
                             rel="noreferrer"
@@ -422,7 +420,7 @@ const LessonPage = () => {
 
               {activeTab === "video" && (
                 <div className="space-y-4">
-                  <div className="aspect-video overflow-hidden rounded-2xl border border-white/10 shadow-xl shadow-black/40">
+                  <div className="aspect-video overflow-hidden rounded-2xl border border-cw-border shadow-xl shadow-black/50">
                     <iframe
                       src={content.videoUrl}
                       title={`${lesson.title} preview`}
@@ -431,7 +429,7 @@ const LessonPage = () => {
                       allowFullScreen
                     />
                   </div>
-                  <p className="text-sm text-gray-300">
+                  <p className="text-sm text-cw-text-muted">
                     Watch the guided walkthrough before diving into the exercise. Pause where needed and mirror the steps in the
                     playground to build muscle memory.
                   </p>
@@ -439,20 +437,20 @@ const LessonPage = () => {
               )}
 
               {activeTab === "exercise" && (
-                <div className="space-y-4 text-sm text-gray-300">
+                <div className="space-y-4 text-sm text-cw-text-muted">
                   <div>
                     <h3 className="text-md font-semibold text-white">Your mission</h3>
                     <p className="mt-1 text-sm text-gray-200">{content.exercise.prompt}</p>
                   </div>
                   <div>
-                    <h4 className="text-xs uppercase tracking-[0.3em] text-electric-light">Objectives</h4>
+                    <h4 className="text-xs uppercase tracking-[0.3em] text-cw-accent">Objectives</h4>
                     <ul className="mt-2 list-disc space-y-1 pl-4">
                       {content.exercise.objectives.map((objective) => (
                         <li key={objective}>{objective}</li>
                       ))}
                     </ul>
                   </div>
-                  <div className="rounded-xl border border-white/5 bg-black/40 p-3 text-xs text-gray-300">
+                  <div className="rounded-xl border border-cw-border bg-cw-surface p-3 text-xs text-cw-text-muted shadow-inner shadow-black/40">
                     <p className="font-semibold text-gray-200">Starter files</p>
                     <p className="mt-1">
                       We load language-specific boilerplate in the playground. Switch languages to compare implementations or port
@@ -463,22 +461,22 @@ const LessonPage = () => {
               )}
             </div>
 
-            <div className="space-y-3 border-t border-white/5 bg-black/50 px-4 py-4">
+            <div className="space-y-3 border-t border-cw-border bg-cw-panel-alt/70 px-4 py-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-gray-300">Test panel</h2>
-                <span className="text-xs text-gray-500">Read only</span>
+                <span className="text-xs text-cw-text-muted">Read only</span>
               </div>
-              <ul className="space-y-2 text-sm text-gray-300">
+              <ul className="space-y-2 text-sm text-cw-text-muted">
                 {content.exercise.tests.map((test, index) => {
                   const status = testStatuses[index] ?? "idle";
                   const { icon: StatusIcon, className, label } = testStatusStyles[status];
                   return (
-                    <li key={test.id} className="flex items-start gap-2 rounded-xl border border-white/5 bg-black/40 p-3">
+                    <li key={test.id} className="flex items-start gap-2 rounded-xl border border-cw-border bg-cw-surface/90 p-3 shadow-inner shadow-black/40">
                       <StatusIcon className={clsx("mt-0.5 h-4 w-4", className)} />
                       <div className="space-y-1">
                         <p className="text-sm font-semibold text-white">{test.name}</p>
-                        <p className="text-xs text-gray-400">{test.description}</p>
-                        <div className="flex flex-wrap gap-3 text-[10px] uppercase tracking-[0.25em] text-gray-500">
+                        <p className="text-xs text-cw-text-muted">{test.description}</p>
+                        <div className="flex flex-wrap gap-3 text-[10px] uppercase tracking-[0.25em] text-cw-text-muted">
                           <span>Status · {label}</span>
                           {test.inputExample && <span>Input · {test.inputExample}</span>}
                           {test.expectedOutput && <span>Output · {test.expectedOutput}</span>}
@@ -492,7 +490,7 @@ const LessonPage = () => {
                 <button
                   type="button"
                   onClick={() => navigate(`/lesson/${nextLesson.id}`)}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-white transition hover:border-electric hover:text-electric"
+                  className="inline-flex items-center gap-2 rounded-full border border-cw-border-light px-3 py-1 text-xs font-semibold text-cw-accent-light transition hover:border-cw-accent hover:text-cw-accent"
                 >
                   Next lesson
                   <ArrowRightIcon className="h-3 w-3" />
@@ -506,8 +504,8 @@ const LessonPage = () => {
           role="separator"
           aria-orientation="vertical"
           className={clsx(
-            "hidden lg:block h-full shrink-0 cursor-col-resize select-none bg-white/10 transition-colors",
-            isResizing ? "bg-electric" : "hover:bg-electric/80",
+            "hidden lg:block h-full shrink-0 cursor-col-resize select-none bg-cw-border/80 transition-colors",
+            isResizing ? "bg-cw-accent" : "hover:bg-cw-accent/60",
           )}
           style={{ width: RESIZER_WIDTH }}
           onMouseDown={handleResizeStart}
@@ -516,18 +514,15 @@ const LessonPage = () => {
         />
 
         {/* Codewars-style Playground Section */}
-        <section className="flex h-full min-h-0 flex-col border-l border-gray-700 bg-gray-900 lg:flex-1 lg:min-w-[360px]">
+        <section className="flex h-full min-h-0 flex-col border-l border-cw-border bg-cw-panel lg:flex-1 lg:min-w-[360px] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
           {/* Playground Header */}
-          <div className="flex items-center justify-between border-b border-gray-700 bg-gray-800 px-4 py-3">
-            <div>
-              <h2 className="text-md font-bold text-white">Codewars Playground</h2>
-              <p className="text-xs text-gray-400">Solve the challenge in your preferred language</p>
-            </div>
+          <div className="flex items-center justify-between border-b border-cw-border-light bg-cw-panel-alt/70 px-4 py-3">
+
             <div className="flex items-center gap-2">
               <select
                 value={language}
                 onChange={(event) => setLanguage(event.target.value as typeof language)}
-                className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-500"
+                className="rounded border border-cw-border bg-cw-panel-alt/80 px-2 py-1 text-xs text-white shadow-inner shadow-black/40 focus:border-cw-accent focus:outline-none"
               >
                 {languages.map((lang) => (
                   <option key={lang} value={lang}>
@@ -539,7 +534,7 @@ const LessonPage = () => {
                 type="button"
                 onClick={() => handleExecute("run")}
                 disabled={isRunning}
-                className="flex items-center space-x-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 px-2 py-1 rounded text-xs font-medium text-white transition-colors"
+                className="flex items-center space-x-1 rounded border border-cw-border bg-cw-accent px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-cw-accent-light disabled:border-cw-border disabled:bg-cw-accent/50"
               >
                 <PlayCircleIcon className="h-3 w-3" />
                 <span>Run Code</span>
@@ -549,7 +544,7 @@ const LessonPage = () => {
 
           {/* Code Editor */}
           <div className="flex flex-1 min-h-0 flex-col">
-            <div className="border-b border-gray-700 p-2">
+            <div className="border-b border-cw-border p-2 bg-cw-panel/80">
               <h3 className="text-sm font-semibold text-white">Your Solution</h3>
             </div>
             <div className="flex-1 min-h-[320px] overflow-hidden">
@@ -577,25 +572,25 @@ const LessonPage = () => {
           </div>
 
           {/* Console Output */}
-          <div className="border-t border-gray-700 bg-gray-800">
-            <div className="p-2 border-b border-gray-700">
+          <div className="border-t border-cw-border bg-cw-panel">
+            <div className="border-b border-cw-border p-2">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-semibold text-white">Output Console</h4>
-                <span className="text-xs text-gray-400">Execution Results</span>
+                <span className="text-xs text-cw-text-muted">Execution Results</span>
               </div>
             </div>
-            <pre className="p-2 text-xs text-gray-300 font-mono whitespace-pre-wrap max-h-32 overflow-y-auto bg-gray-900">
+            <pre className="max-h-32 overflow-y-auto bg-cw-surface p-2 font-mono text-xs text-gray-300 whitespace-pre-wrap">
               {consoleOutput}
             </pre>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3 border-t border-gray-700 bg-gray-800 px-4 py-3">
-            <div className="flex flex-1 items-center gap-2 text-xs text-gray-400 min-w-[200px] sm:flex-none">
+          <div className="flex flex-wrap items-center gap-3 border-t border-cw-border bg-cw-panel px-4 py-3">
+            <div className="flex flex-1 items-center gap-2 text-xs text-cw-text-muted min-w-[200px] sm:flex-none">
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                submissionState === "passed" ? "bg-green-500/20 text-green-400" :
-                submissionState === "failed" ? "bg-red-500/20 text-red-400" :
-                "bg-gray-500/20 text-gray-400"
+                submissionState === "passed" ? "bg-emerald-500/20 text-emerald-300" :
+                submissionState === "failed" ? "bg-cw-accent/25 text-cw-accent-light" :
+                "bg-cw-border/60 text-cw-text-muted"
               }`}>
                 {submissionState === "passed" ? "✅ All Tests Passed" : 
                  submissionState === "failed" ? "❌ Tests Failed" : 
@@ -607,7 +602,7 @@ const LessonPage = () => {
                 type="button"
                 onClick={() => handleExecute("test")}
                 disabled={isRunning}
-                className="flex items-center space-x-1 bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-800 px-2 py-1 rounded text-xs font-medium text-white transition-colors"
+                className="flex items-center space-x-1 rounded border border-cw-border-light bg-cw-panel-alt px-2 py-1 text-xs font-medium text-white transition-colors hover:border-cw-accent hover:text-cw-accent-light disabled:border-cw-border"
               >
                 <ArrowPathIcon className="h-3 w-3" />
                 <span>Run Tests</span>
@@ -616,7 +611,7 @@ const LessonPage = () => {
                 type="button"
                 onClick={() => handleExecute("submit")}
                 disabled={isRunning}
-                className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 disabled:bg-green-800 px-2 py-1 rounded text-xs font-medium text-white transition-colors"
+                className="flex items-center space-x-1 rounded border border-cw-border bg-cw-accent px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-cw-accent-light disabled:bg-cw-accent/40"
               >
                 <CheckCircleIcon className="h-3 w-3" />
                 <span>Submit</span>

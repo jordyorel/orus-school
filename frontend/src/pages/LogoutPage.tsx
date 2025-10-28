@@ -18,7 +18,7 @@ const LogoutPage = () => {
   }, [logout, navigate]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-midnight via-[#050814] to-black text-gray-200">
+    <div className="flex min-h-screen flex-col bg-gradient-to-b from-editor-surface via-editor-panel to-editor-deep text-gray-200">
       <Navbar />
       <main className="flex flex-1 items-center justify-center px-4 py-16 sm:px-6 lg:px-8">
         <div className="w-full max-w-lg rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-10 text-center shadow-xl shadow-emerald-500/20">

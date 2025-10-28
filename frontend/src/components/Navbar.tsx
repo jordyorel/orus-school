@@ -19,7 +19,7 @@ const Navbar = () => {
   const firstName = student?.fullName.split(" ")[0] ?? "Profile";
 
   return (
-    <Disclosure as="nav" className="bg-midnight/90 backdrop-blur border-b border-white/10 sticky top-0 z-50">
+    <Disclosure as="nav" className="bg-editor-panel/90 backdrop-blur border-b border-white/10 sticky top-0 z-50">
       {({ open }) => (
         <>
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
@@ -90,7 +90,7 @@ const Navbar = () => {
             leaveFrom="transform opacity-100 scale-100"
             leaveTo="transform opacity-0 scale-95"
           >
-            <Disclosure.Panel className="md:hidden border-t border-white/10 bg-charcoal/80">
+            <Disclosure.Panel className="md:hidden border-t border-white/10 bg-editor-panel/80">
               <div className="space-y-1 px-4 pb-3 pt-2">
                 {links.map((link) => (
                   <Disclosure.Button

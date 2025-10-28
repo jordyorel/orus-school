@@ -17,11 +17,11 @@ const defaultActiveCourseSlug =
 
 const LandingPage = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-midnight via-[#080c1a] to-black text-gray-200">
+    <div className="min-h-screen bg-gradient-to-b from-editor-surface via-editor-panel to-editor-deep text-gray-200">
       <Navbar />
       <main>
         <section className="relative overflow-hidden px-4 pb-24 pt-20 sm:px-6 lg:px-8">
-          <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.35),_transparent_55%)]" />
+          <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(72,85,99,0.4),_transparent_55%)]" />
           <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-2 lg:items-center">
             <div>
               <motion.p

@@ -23,7 +23,7 @@ const ProfilePage = () => {
 
   if (!student) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-midnight via-[#050814] to-black text-gray-200">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-editor-surface via-editor-panel to-editor-deep text-gray-200">
         <p className="text-sm text-gray-300">Loading profile…</p>
       </div>
     );
@@ -35,7 +35,7 @@ const ProfilePage = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-midnight via-[#050814] to-black text-gray-200">
+    <div className="flex min-h-screen flex-col bg-gradient-to-b from-editor-surface via-editor-panel to-editor-deep text-gray-200">
       <Navbar />
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-16 sm:px-6 lg:flex-row lg:gap-16 lg:py-20">
         <section className="w-full lg:w-1/3">

@@ -36,7 +36,7 @@ const CoursePage = () => {
   const resumeCtaLabel = hasStartedCourse ? "Resume where you left off" : "Start learning";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-midnight via-[#050712] to-black text-gray-100">
+    <div className="min-h-screen bg-gradient-to-b from-editor-surface via-editor-panel to-editor-deep text-gray-100">
       <Navbar />
       <main className="px-4 pb-24 pt-16 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-6xl flex-col gap-16">

@@ -38,7 +38,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-midnight via-[#050814] to-black text-gray-200">
+    <div className="flex min-h-screen flex-col bg-gradient-to-b from-editor-surface via-editor-panel to-editor-deep text-gray-200">
       <Navbar />
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-12 px-4 py-16 sm:px-6 lg:flex-row lg:items-center lg:gap-16">
         <section className="w-full lg:w-1/2">

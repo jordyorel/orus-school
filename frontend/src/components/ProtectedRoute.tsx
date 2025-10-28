@@ -11,7 +11,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-midnight via-[#050814] to-black text-gray-200">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-editor-surface via-editor-panel to-editor-deep text-gray-200">
         <p className="text-sm text-gray-300">Checking your session…</p>
       </div>
     );

@@ -77,7 +77,7 @@ const RegisterPage = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-black via-[#030512] to-midnight text-gray-200">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-editor-panel via-[#131520] to-editor-deep text-gray-200">
       <Navbar />
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-16 px-4 py-16 sm:px-6 lg:flex-row lg:gap-20 lg:py-24">
         <section className="w-full lg:w-1/2">
