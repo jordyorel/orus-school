@@ -47,6 +47,8 @@ const RESIZER_WIDTH = 8;
 const DEFAULT_CONSOLE_HEIGHT = 240;
 const MIN_CONSOLE_HEIGHT = 0;
 const MAX_CONSOLE_HEIGHT = 480;
+const DEFAULT_TEST_PANEL_HEIGHT = 240;
+const MIN_TEST_PANEL_HEIGHT = 0;
 
 export default function LessonPage() {
   const { lessonId } = useParams();
@@ -80,6 +82,9 @@ export default function LessonPage() {
   const [consoleHeight, setConsoleHeight] = useState(DEFAULT_CONSOLE_HEIGHT);
   const [isConsoleResizing, setIsConsoleResizing] = useState(false);
   const consoleResizeStateRef = useRef<{ startY: number; startHeight: number }>({ startY: 0, startHeight: DEFAULT_CONSOLE_HEIGHT });
+  const [testPanelHeight, setTestPanelHeight] = useState(DEFAULT_TEST_PANEL_HEIGHT);
+  const [isTestPanelResizing, setIsTestPanelResizing] = useState(false);
+  const testPanelResizeStateRef = useRef<{ startY: number; startHeight: number }>({ startY: 0, startHeight: DEFAULT_TEST_PANEL_HEIGHT });
 
   const handleEditorDidMount = (editor: any) => {
     editorRef.current = editor;
@@ -95,6 +100,7 @@ export default function LessonPage() {
     setTestStatuses(content.exercise.tests.map(() => "idle" as TestStatus));
     setSubmissionState("idle");
     setConsoleHeight(DEFAULT_CONSOLE_HEIGHT);
+    setTestPanelHeight(DEFAULT_TEST_PANEL_HEIGHT);
   }, [content, defaultLanguage]);
 
   const updateLayoutDimensions = useCallback(() => {
@@ -126,6 +132,7 @@ export default function LessonPage() {
     if (!isDesktop) {
       setIsResizing(false);
       setIsConsoleResizing(false);
+      setIsTestPanelResizing(false);
     }
   }, [isDesktop]);
 
@@ -184,6 +191,31 @@ export default function LessonPage() {
     };
   }, [isConsoleResizing]);
 
+  // exercise test panel resizer
+  useEffect(() => {
+    if (!isTestPanelResizing) return;
+    const handleMouseMove = (event: MouseEvent) => {
+      const { startY, startHeight } = testPanelResizeStateRef.current;
+      const delta = startY - event.clientY;
+      setTestPanelHeight(Math.max(startHeight + delta, MIN_TEST_PANEL_HEIGHT));
+    };
+    const stopResize = () => setIsTestPanelResizing(false);
+
+    const prevCursor = document.body.style.cursor;
+    const prevSelect = document.body.style.userSelect;
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", stopResize);
+    return () => {
+      document.body.style.cursor = prevCursor;
+      document.body.style.userSelect = prevSelect;
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", stopResize);
+    };
+  }, [isTestPanelResizing]);
+
   const handleResizeStart = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (!isDesktop) return;
@@ -207,9 +239,18 @@ export default function LessonPage() {
 
   const handleConsoleResizeReset = useCallback(() => setConsoleHeight(DEFAULT_CONSOLE_HEIGHT), []);
 
+  const handleTestPanelResizeStart = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    testPanelResizeStateRef.current = { startY: event.clientY, startHeight: testPanelHeight };
+    setIsTestPanelResizing(true);
+  }, [testPanelHeight]);
+
+  const handleTestPanelResizeReset = useCallback(() => setTestPanelHeight(DEFAULT_TEST_PANEL_HEIGHT), []);
+
   const currentCode = codeByLanguage[language] ?? "";
   const monacoLanguage = monacoLanguageMap[language] ?? "plaintext";
   const isConsoleCollapsed = consoleHeight <= MIN_CONSOLE_HEIGHT + 1;
+  const isTestPanelCollapsed = testPanelHeight <= MIN_TEST_PANEL_HEIGHT + 1;
 
   const updateCode = (value: string | undefined) => {
     setCodeByLanguage((prev) => ({ ...prev, [language]: value ?? "" }));
@@ -398,67 +439,103 @@ export default function LessonPage() {
                   )}
 
                   {activeTab === "exercise" && (
-                    <div className="flex h-full min-h-0 flex-col space-y-4 overflow-y-auto pr-2 text-sm text-cw-text-muted">
-                      <div>
-                        <h3 className="text-md font-semibold text-white">Your mission</h3>
-                        <p className="mt-1 text-sm text-gray-200">{content.exercise.prompt}</p>
+                    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md bg-cw-panel-alt/70">
+                      <div className="flex-1 min-h-0 px-4 py-4">
+                        <article className="flex h-full min-h-0 flex-col space-y-4 overflow-y-auto pr-2 pb-2 text-sm text-cw-text-muted">
+                          <div>
+                            <h3 className="text-md font-semibold text-white">Your mission</h3>
+                            <p className="mt-1 text-sm text-gray-200">{content.exercise.prompt}</p>
+                          </div>
+                          <div>
+                            <h4 className="text-xs uppercase tracking-[0.3em] text-cw-accent">Objectives</h4>
+                            <ul className="mt-2 list-disc space-y-1 pl-4">
+                              {content.exercise.objectives.map((objective) => (
+                                <li key={objective}>{objective}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div className="rounded-xl border border-cw-border bg-cw-surface p-3 text-xs text-cw-text-muted shadow-inner shadow-black/40">
+                            <p className="font-semibold text-gray-200">Starter files</p>
+                            <p className="mt-1">
+                              We load language-specific boilerplate in the playground. Switch languages to compare implementations or
+                              port your solution.
+                            </p>
+                          </div>
+                        </article>
                       </div>
-                      <div>
-                        <h4 className="text-xs uppercase tracking-[0.3em] text-cw-accent">Objectives</h4>
-                        <ul className="mt-2 list-disc space-y-1 pl-4">
-                          {content.exercise.objectives.map((objective) => (
-                            <li key={objective}>{objective}</li>
-                          ))}
-                        </ul>
+
+                      <div
+                        role="separator"
+                        aria-orientation="horizontal"
+                        className={clsx(
+                          "relative z-10 flex h-3 shrink-0 cursor-row-resize items-center justify-center bg-transparent",
+                          isTestPanelResizing ? "bg-cw-accent/40" : "hover:bg-cw-accent/20",
+                        )}
+                        onMouseDown={handleTestPanelResizeStart}
+                        onDoubleClick={handleTestPanelResizeReset}
+                        title="Drag to resize the test panel. Double-click to reset."
+                      >
+                        <span className="h-1 w-12 rounded-full bg-cw-border" />
                       </div>
-                      <div className="rounded-xl border border-cw-border bg-cw-surface p-3 text-xs text-cw-text-muted shadow-inner shadow-black/40">
-                        <p className="font-semibold text-gray-200">Starter files</p>
-                        <p className="mt-1">
-                          We load language-specific boilerplate in the playground. Switch languages to compare implementations or
-                          port your solution.
-                        </p>
+
+                      <div
+                        className={clsx(
+                          "shrink-0 flex-none border-t border-cw-border bg-cw-panel-alt/80",
+                          isTestPanelCollapsed ? "px-0 py-0" : "px-4 py-4",
+                        )}
+                        style={{
+                          height: `${Math.max(testPanelHeight, 0)}px`,
+                          flexBasis: `${Math.max(testPanelHeight, 0)}px`,
+                          minHeight: `${MIN_TEST_PANEL_HEIGHT}px`,
+                        }}
+                      >
+                        <div className={clsx(
+                          "flex h-full flex-col overflow-hidden",
+                          isTestPanelCollapsed && "pointer-events-none opacity-0",
+                        )}
+                        >
+                          <div className="flex shrink-0 items-center justify-between">
+                            <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-gray-300">Test panel</h2>
+                          </div>
+                          <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+                            <ul className="space-y-2 text-sm text-cw-text-muted">
+                              {content.exercise.tests.map((test, index) => {
+                                const status = testStatuses[index] ?? "idle";
+                                const { icon: StatusIcon, className, label } = testStatusStyles[status];
+                                return (
+                                  <li key={test.id} className="flex items-start gap-2 rounded-xl border border-cw-border bg-cw-surface/90 p-3 shadow-inner shadow-black/40">
+                                    <StatusIcon className={clsx("mt-0.5 h-4 w-4", className)} />
+                                    <div className="space-y-1">
+                                      <p className="text-sm font-semibold text-white">{test.name}</p>
+                                      <p className="text-xs text-cw-text-muted">{test.description}</p>
+                                      <div className="flex flex-wrap gap-3 text-[10px] uppercase tracking-[0.25em] text-cw-text-muted">
+                                        <span>Status · {label}</span>
+                                        {test.inputExample && <span>Input · {test.inputExample}</span>}
+                                        {test.expectedOutput && <span>Output · {test.expectedOutput}</span>}
+                                      </div>
+                                    </div>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                          {nextLesson && (
+                            <div className="mt-3 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/lesson/${nextLesson.id}`)}
+                                className="inline-flex items-center gap-2 rounded-full border border-cw-border-light px-3 py-1 text-xs font-semibold text-cw-accent-light transition hover:border-cw-accent hover:text-cw-accent"
+                              >
+                                Next lesson
+                                <ArrowRightIcon className="h-3 w-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
                 </div>
-
-                {activeTab === "exercise" && (
-                  <div className="space-y-3 border-t border-cw-border bg-cw-panel-alt/70 px-4 py-4">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-gray-300">Test panel</h2>
-                    </div>
-                    <ul className="space-y-2 text-sm text-cw-text-muted">
-                      {content.exercise.tests.map((test, index) => {
-                        const status = testStatuses[index] ?? "idle";
-                        const { icon: StatusIcon, className, label } = testStatusStyles[status];
-                        return (
-                          <li key={test.id} className="flex items-start gap-2 rounded-xl border border-cw-border bg-cw-surface/90 p-3 shadow-inner shadow-black/40">
-                            <StatusIcon className={clsx("mt-0.5 h-4 w-4", className)} />
-                            <div className="space-y-1">
-                              <p className="text-sm font-semibold text-white">{test.name}</p>
-                              <p className="text-xs text-cw-text-muted">{test.description}</p>
-                              <div className="flex flex-wrap gap-3 text-[10px] uppercase tracking-[0.25em] text-cw-text-muted">
-                                <span>Status · {label}</span>
-                                {test.inputExample && <span>Input · {test.inputExample}</span>}
-                                {test.expectedOutput && <span>Output · {test.expectedOutput}</span>}
-                              </div>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    {nextLesson && (
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/lesson/${nextLesson.id}`)}
-                        className="inline-flex items-center gap-2 rounded-full border border-cw-border-light px-3 py-1 text-xs font-semibold text-cw-accent-light transition hover:border-cw-accent hover:text-cw-accent"
-                      >
-                        Next lesson
-                        <ArrowRightIcon className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                )}
               </div>
             </section>
 
