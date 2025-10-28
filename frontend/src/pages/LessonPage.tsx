@@ -63,7 +63,10 @@ export default function LessonPage() {
 
   const { course, lesson, content, nextLesson } = lessonResult;
 
-  const languages = useMemo(() => Object.keys(content.exercise.starterCode), [content.exercise.starterCode]);
+  const languages = useMemo(
+    () => Object.keys(content.exercise.starterCode).filter((lang) => !["python", "javascript"].includes(lang)),
+    [content.exercise.starterCode],
+  );
   const defaultLanguage = useMemo(() => {
     if (languages.includes(content.exercise.defaultLanguage)) return content.exercise.defaultLanguage;
     return (languages[0] as "c") ?? "c";
@@ -457,8 +460,7 @@ export default function LessonPage() {
                           <div className="rounded-xl border border-cw-border bg-cw-surface p-3 text-xs text-cw-text-muted shadow-inner shadow-black/40">
                             <p className="font-semibold text-gray-200">Starter files</p>
                             <p className="mt-1">
-                              We load language-specific boilerplate in the playground. Switch languages to compare implementations or
-                              port your solution.
+                              We preload C boilerplate in the playground so you can focus on the exercise logic.
                             </p>
                           </div>
                         </article>

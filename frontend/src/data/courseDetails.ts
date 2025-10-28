@@ -20,7 +20,7 @@ export interface LessonExercise {
   prompt: string;
   objectives: string[];
   starterCode: Record<string, string>;
-  defaultLanguage: "c" | "python" | "javascript";
+  defaultLanguage: "c";
   tests: LessonTestCase[];
 }
 
@@ -187,8 +187,6 @@ const lessonContentCatalog: Record<string, LessonContent> = {
       ],
       starterCode: {
         c: `#include <stdio.h>\n#include <unistd.h>\n#include <limits.h>\n\nint main(void) {\n    char buffer[PATH_MAX];\n    if (!getcwd(buffer, sizeof(buffer))) {\n        perror("getcwd");\n        return 1;\n    }\n\n    printf("cwd:%s\\n", buffer);\n    printf("tooling:ok\\n");\n    return 0;\n}\n`,
-        python: `import os\n\nif __name__ == "__main__":\n    print(f"cwd:{os.getcwd()}")\n    print("tooling:ok")\n`,
-        javascript: `console.log(\`cwd:\${process.cwd()}\`);\nconsole.log("tooling:ok");\n`,
       },
       defaultLanguage: "c",
       tests: [
@@ -240,8 +238,6 @@ const lessonContentCatalog: Record<string, LessonContent> = {
       ],
       starterCode: {
         c: `#include <stdio.h>\n#include "logger.h"\n\nint main(void) {\n    log_info("Bootstrapping Orus project...");\n    return 0;\n}\n`,
-        python: `def log_info(message: str) -> None:\n    print(f"[info] {message}")\n\nif __name__ == "__main__":\n    log_info("Bootstrapping Orus project...")\n`,
-        javascript: `const logInfo = (message) => console.log(\`[info] \${message}\`);\n\nlogInfo("Bootstrapping Orus project...");\n`,
       },
       defaultLanguage: "c",
       tests: [
@@ -292,8 +288,6 @@ const lessonContentCatalog: Record<string, LessonContent> = {
       ],
       starterCode: {
         c: `#include <stdio.h>\n\nlong sum_to_n(long n) {\n    if (n < 0) {\n        return 0;\n    }\n\n    long result = 0;\n    for (long i = 1; i <= n; ++i) {\n        result += i;\n    }\n    return result;\n}\n\nint main(void) {\n    long value = 0;\n    if (scanf("%ld", &value) != 1) {\n        return 1;\n    }\n    printf("%ld\\n", sum_to_n(value));\n    return 0;\n}\n`,
-        python: `def sum_to_n(value: int) -> int:\n    if value < 0:\n        return 0\n\n    result = 0\n    for current in range(1, value + 1):\n        result += current\n    return result\n\nif __name__ == "__main__":\n    try:\n        print(sum_to_n(int(input().strip())))\n    except ValueError:\n        print(0)\n`,
-        javascript: `const sumToN = (value) => {\n  if (value < 0) return 0;\n  let result = 0;\n  for (let current = 1; current <= value; current += 1) {\n    result += current;\n  }\n  return result;\n};\n\nconst fs = require("fs");\nconst input = fs.readFileSync(0, "utf8").trim();\nconst parsed = Number.parseInt(input, 10);\nconsole.log(sumToN(Number.isNaN(parsed) ? 0 : parsed));\n`,
       },
       defaultLanguage: "c",
       tests: [
