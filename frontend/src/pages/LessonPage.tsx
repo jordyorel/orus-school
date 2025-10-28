@@ -316,13 +316,13 @@ export default function LessonPage() {
               className="flex h-full min-h-0 flex-col overflow-hidden border-b border-cw-border bg-cw-panel/95 lg:border-r lg:flex-shrink-0"
               style={isDesktop && Number.isFinite(leftPaneWidth) ? { flexBasis: `${leftPaneWidth}px`, width: `${leftPaneWidth}px` } : undefined}
             >
-              <div className="flex-1 min-h-0 overflow-y-auto">
-                <div className="border-b border-cw-border-light px-6 py-4 bg-cw-surface/90">
+              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                <div className="shrink-0 border-b border-cw-border-light px-6 py-4 bg-cw-surface/90">
                   <p className="text-xs uppercase tracking-[0.3em] text-cw-accent">Lesson {lesson.title}</p>
                   <h1 className="mt-2 text-xl font-semibold text-white">{lesson.summary}</h1>
                 </div>
 
-                <div className="flex border-b border-cw-border-light bg-cw-surface/60">
+                <div className="flex shrink-0 border-b border-cw-border-light bg-cw-surface/60">
                   {tabs.map((tab) => (
                     <button
                       key={tab.id}
@@ -338,47 +338,49 @@ export default function LessonPage() {
                   ))}
                 </div>
 
-                <div className="px-4 py-4">
+                <div className="flex-1 min-h-0 px-4 py-4 overflow-hidden">
                   {activeTab === "course" && (
-                    <article className="space-y-6 rounded-xl border border-cw-border-light bg-cw-panel-alt/90 p-5 text-sm text-cw-text-muted shadow-[0_8px_16px_rgba(0,0,0,0.45)]">
-                      <p className="text-base text-gray-200">{content.intro}</p>
-                      {content.courseSections.map((section, index) => (
-                        <section key={section.title} className={clsx("space-y-3", index > 0 && "border-t border-cw-border-light pt-4")}>
-                          <h3 className="text-md font-semibold text-white">{section.title}</h3>
-                          <p className="text-sm text-cw-text-muted">{section.description}</p>
-                          {section.bullets && (
-                            <ul className="list-disc space-y-1 pl-4 text-sm text-cw-text-muted">
-                              {section.bullets.map((bullet) => (
-                                <li key={bullet}>{bullet}</li>
+                    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md bg-cw-panel-alt/70 p-4">
+                      <article className="flex-1 min-h-0 space-y-6 overflow-y-auto pr-2 pb-2 text-sm text-cw-text-muted">
+                        <p className="text-base text-gray-200">{content.intro}</p>
+                        {content.courseSections.map((section, index) => (
+                          <section key={section.title} className={clsx("space-y-3", index > 0 && "pt-4")}>
+                            <h3 className="text-md font-semibold text-white">{section.title}</h3>
+                            <p className="text-sm text-cw-text-muted">{section.description}</p>
+                            {section.bullets && (
+                              <ul className="list-disc space-y-1 pl-4 text-sm text-cw-text-muted">
+                                {section.bullets.map((bullet) => (
+                                  <li key={bullet}>{bullet}</li>
+                                ))}
+                              </ul>
+                            )}
+                            {section.codeSample && (
+                              <pre className="overflow-x-auto rounded-lg border border-cw-border bg-cw-surface p-3 text-xs text-gray-200 shadow-inner shadow-black/60">
+                                <code>{section.codeSample}</code>
+                              </pre>
+                            )}
+                          </section>
+                        ))}
+                        {content.resources.length > 0 && (
+                          <footer className="pt-4">
+                            <h3 className="text-sm font-semibold text-cw-accent-light">Resources</h3>
+                            <ul className="mt-2 space-y-1 text-sm text-cw-text-muted">
+                              {content.resources.map((resource) => (
+                                <li key={resource.href}>
+                                  <a className="text-cw-accent-light hover:text-cw-accent" href={resource.href} target="_blank" rel="noreferrer">
+                                    {resource.label}
+                                  </a>
+                                </li>
                               ))}
                             </ul>
-                          )}
-                          {section.codeSample && (
-                            <pre className="overflow-x-auto rounded-lg border border-cw-border bg-cw-surface p-3 text-xs text-gray-200 shadow-inner shadow-black/60">
-                              <code>{section.codeSample}</code>
-                            </pre>
-                          )}
-                        </section>
-                      ))}
-                      {content.resources.length > 0 && (
-                        <footer className="border-t border-cw-border-light pt-4">
-                          <h3 className="text-sm font-semibold text-cw-accent-light">Resources</h3>
-                          <ul className="mt-2 space-y-1 text-sm text-cw-text-muted">
-                            {content.resources.map((resource) => (
-                              <li key={resource.href}>
-                                <a className="text-cw-accent-light hover:text-cw-accent" href={resource.href} target="_blank" rel="noreferrer">
-                                  {resource.label}
-                                </a>
-                              </li>
-                            ))}
-                          </ul>
-                        </footer>
-                      )}
-                    </article>
+                          </footer>
+                        )}
+                      </article>
+                    </div>
                   )}
 
                   {activeTab === "video" && (
-                    <div className="space-y-4">
+                    <div className="flex h-full min-h-0 flex-col space-y-4 overflow-y-auto pr-2">
                       <div className="aspect-video overflow-hidden rounded-2xl border border-cw-border shadow-xl shadow-black/50">
                         <iframe
                           src={content.videoUrl}
@@ -396,7 +398,7 @@ export default function LessonPage() {
                   )}
 
                   {activeTab === "exercise" && (
-                    <div className="space-y-4 text-sm text-cw-text-muted">
+                    <div className="flex h-full min-h-0 flex-col space-y-4 overflow-y-auto pr-2 text-sm text-cw-text-muted">
                       <div>
                         <h3 className="text-md font-semibold text-white">Your mission</h3>
                         <p className="mt-1 text-sm text-gray-200">{content.exercise.prompt}</p>
@@ -549,7 +551,7 @@ export default function LessonPage() {
                   {!isConsoleCollapsed && (
                     <>
                       <div className="flex items-center justify-between border-b border-cw-border-light px-3 py-2">
-                        <h4 className="text-sm font-semibold text-white">Output Console</h4>
+                        <h4 className="text-sm font-semibold text-white">Output</h4>
                       </div>
                       <pre className="flex-1 overflow-y-auto bg-cw-surface p-3 font-mono text-xs text-gray-300 whitespace-pre-wrap">{consoleOutput}</pre>
                     </>
