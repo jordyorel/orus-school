@@ -43,7 +43,7 @@ const consolePlaceholder = "";
 
 const MIN_LEFT_WIDTH = 0;
 const MIN_RIGHT_WIDTH = 0;
-const RESIZER_WIDTH = 8;
+const RESIZER_WIDTH = 14;
 const DEFAULT_CONSOLE_HEIGHT = 240;
 const MIN_CONSOLE_HEIGHT = 0;
 const MAX_CONSOLE_HEIGHT = 480;
@@ -357,11 +357,11 @@ export default function LessonPage() {
           >
             {/* Left column: lesson content / tabs */}
             <section
-              className="flex h-full min-h-0 flex-col overflow-hidden border-b border-cw-border bg-cw-panel/95 lg:border-r lg:flex-shrink-0"
+              className="flex h-full min-h-0 flex-col overflow-hidden border-b border-cw-border bg-cw-panel/95 lg:border-r lg:flex-shrink-0 lg:rounded-r-lg"
               style={isDesktop && Number.isFinite(leftPaneWidth) ? { flexBasis: `${leftPaneWidth}px`, width: `${leftPaneWidth}px` } : undefined}
             >
               <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                <div className="shrink-0 border-b border-cw-border-light px-6 py-4 bg-cw-surface/90">
+                <div className="shrink-0 border-b border-cw-border-light px-6 py-4 bg-cw-surface/90 lg:rounded-tr-lg">
                   <p className="text-xs uppercase tracking-[0.3em] text-cw-accent">Lesson {lesson.title}</p>
                   <h1 className="mt-2 text-xl font-semibold text-white">{lesson.summary}</h1>
                 </div>
@@ -546,25 +546,27 @@ export default function LessonPage() {
               role="separator"
               aria-orientation="vertical"
               className={clsx(
-                "hidden lg:block h-full shrink-0 cursor-col-resize select-none bg-cw-border/80 transition-colors",
-                isResizing ? "bg-cw-accent" : "hover:bg-cw-accent/60",
+                "hidden lg:flex h-full shrink-0 cursor-col-resize select-none items-center justify-center bg-cw-surface/80 transition-colors shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]",
+                isResizing ? "bg-cw-accent/60" : "hover:bg-cw-accent/40",
               )}
               style={{ width: RESIZER_WIDTH }}
               onMouseDown={handleResizeStart}
               onDoubleClick={handleResizeReset}
               title="Drag to resize panels. Double-click to reset."
-            />
+            >
+              <span className="pointer-events-none h-3/4 w-px rounded-full bg-cw-accent/70" />
+            </div>
 
             {/* Right column: editor + console */}
-            <section className="flex h-full min-h-0 flex-col border-l border-cw-border bg-cw-panel lg:flex-1 lg:min-w-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+            <section className="flex h-full min-h-0 flex-col border-l border-cw-border bg-cw-panel lg:flex-1 lg:min-w-0 lg:rounded-l-lg shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
               {/* Playground header */}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cw-border-light bg-cw-panel-alt/70 px-4 py-3">
-                <h3 className="text-sm font-semibold text-white">Your Solution</h3>
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cw-border-light bg-cw-panel-alt/70 px-3 py-2 lg:rounded-l-lg">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-white">Your Solution</h3>
+                <div className="flex items-center gap-2 text-xs">
                   <select
                     value={language}
                     onChange={(e) => setLanguage(e.target.value as typeof language)}
-                    className="rounded border border-cw-border bg-cw-panel-alt/80 px-2 py-1 text-xs text-white shadow-inner shadow-black/40 focus:border-cw-accent focus:outline-none"
+                    className="rounded border border-cw-border bg-cw-panel-alt/80 px-2 py-1 text-[11px] text-white shadow-inner shadow-black/40 focus:border-cw-accent focus:outline-none"
                   >
                     {languages.map((lang) => (
                       <option key={lang} value={lang}>{lang.toUpperCase()}</option>
@@ -574,7 +576,7 @@ export default function LessonPage() {
                     type="button"
                     onClick={() => handleExecute("run")}
                     disabled={isRunning}
-                    className="flex items-center space-x-1 rounded border border-cw-border bg-cw-accent px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-cw-accent-light disabled:border-cw-border disabled:bg-cw-accent/50"
+                    className="flex items-center space-x-1 rounded border border-cw-border bg-cw-accent px-2 py-1 text-[11px] font-medium text-white transition-colors hover:bg-cw-accent-light disabled:border-cw-border disabled:bg-cw-accent/50"
                   >
                     <PlayCircleIcon className="h-3 w-3" />
                     <span>Run Code</span>
