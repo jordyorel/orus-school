@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import Editor from "@monaco-editor/react";
 import {
@@ -38,10 +39,15 @@ const monacoLanguageMap: Record<string, string> = {
 const consolePlaceholder =
   "Welcome to the Orus playground. Run the starter code or write your own solution to see output here.";
 
+const MIN_LEFT_WIDTH = 240;
+const MIN_RIGHT_WIDTH = 360;
+const RESIZER_WIDTH = 8;
+
 const LessonPage = () => {
   const { lessonId } = useParams();
   const navigate = useNavigate();
   const editorRef = useRef<any>(null);
+  const layoutRef = useRef<HTMLDivElement | null>(null);
 
   if (!lessonId) {
     return <Navigate to="/landing" replace />;
@@ -73,6 +79,9 @@ const LessonPage = () => {
     content.exercise.tests.map(() => "idle" as TestStatus),
   );
   const [submissionState, setSubmissionState] = useState<"idle" | "submitting" | "passed" | "failed">("idle");
+  const [leftPaneWidth, setLeftPaneWidth] = useState<number>(Number.NaN);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
 
   const handleEditorDidMount = (editor: any) => {
     editorRef.current = editor;
@@ -88,6 +97,107 @@ const LessonPage = () => {
     setTestStatuses(content.exercise.tests.map(() => "idle" as TestStatus));
     setSubmissionState("idle");
   }, [content, defaultLanguage]);
+
+  const updateLayoutDimensions = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const isLgViewport = window.innerWidth >= 1024;
+    setIsDesktop(isLgViewport);
+
+    if (!layoutRef.current || !isLgViewport) {
+      return;
+    }
+
+    const rect = layoutRef.current.getBoundingClientRect();
+    const availableWidth = rect.width - RESIZER_WIDTH;
+    const defaultWidth = Math.max(availableWidth * 0.4, MIN_LEFT_WIDTH);
+    setLeftPaneWidth((current) => {
+      if (!Number.isFinite(current)) {
+        return Math.min(defaultWidth, Math.max(availableWidth - MIN_RIGHT_WIDTH, MIN_LEFT_WIDTH));
+      }
+
+      const maxWidth = Math.max(availableWidth - MIN_RIGHT_WIDTH, MIN_LEFT_WIDTH);
+      return Math.min(Math.max(current, MIN_LEFT_WIDTH), maxWidth);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    updateLayoutDimensions();
+    window.addEventListener("resize", updateLayoutDimensions);
+    return () => {
+      window.removeEventListener("resize", updateLayoutDimensions);
+    };
+  }, [updateLayoutDimensions]);
+
+  useEffect(() => {
+    if (!isDesktop) {
+      setIsResizing(false);
+    }
+  }, [isDesktop]);
+
+  useEffect(() => {
+    if (!isResizing || !isDesktop) {
+      return;
+    }
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!layoutRef.current) {
+        return;
+      }
+
+      const rect = layoutRef.current.getBoundingClientRect();
+      const availableWidth = rect.width - RESIZER_WIDTH;
+      const pointerOffset = Math.min(Math.max(event.clientX - rect.left, MIN_LEFT_WIDTH), availableWidth);
+      const maxWidth = Math.max(availableWidth - MIN_RIGHT_WIDTH, MIN_LEFT_WIDTH);
+      const nextWidth = Math.min(pointerOffset, maxWidth);
+      setLeftPaneWidth(nextWidth);
+    };
+
+    const stopResizing = () => {
+      setIsResizing(false);
+    };
+
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", stopResizing);
+
+    return () => {
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", stopResizing);
+    };
+  }, [isResizing, isDesktop]);
+
+  const handleResizeStart = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (!isDesktop) {
+      return;
+    }
+    setIsResizing(true);
+  }, [isDesktop]);
+
+  const handleResizeReset = useCallback(() => {
+    if (!layoutRef.current || !isDesktop) {
+      return;
+    }
+
+    const rect = layoutRef.current.getBoundingClientRect();
+    const availableWidth = rect.width - RESIZER_WIDTH;
+    const defaultWidth = Math.max(availableWidth * 0.4, MIN_LEFT_WIDTH);
+    const maxWidth = Math.max(availableWidth - MIN_RIGHT_WIDTH, MIN_LEFT_WIDTH);
+    setLeftPaneWidth(Math.min(defaultWidth, maxWidth));
+  }, [isDesktop]);
 
   const currentCode = codeByLanguage[language] ?? "";
   const monacoLanguage = monacoLanguageMap[language] ?? "plaintext";
@@ -236,157 +346,177 @@ const LessonPage = () => {
         </div>
       </header>
 
-      <div className="grid flex-1 grid-cols-1 lg:grid-cols-[1fr_1.2fr]">
-        <section className="flex h-full flex-col border-b border-white/10 bg-[#080a18] lg:border-r">
-          <div className="border-b border-white/5 px-6 py-4">
-            <p className="text-xs uppercase tracking-[0.3em] text-electric-light">Lesson {lesson.title}</p>
-            <h1 className="mt-2 text-xl font-semibold text-white">{lesson.summary}</h1>
-            <p className="mt-2 text-sm text-gray-300">Estimated time · {lesson.duration}</p>
-          </div>
+      <div ref={layoutRef} className="flex flex-1 min-h-0 flex-col lg:flex-row">
+        <section
+          className="flex h-full min-h-0 flex-col overflow-hidden border-b border-white/10 bg-[#080a18] lg:border-r lg:flex-shrink-0"
+          style={isDesktop && Number.isFinite(leftPaneWidth)
+            ? { flexBasis: `${leftPaneWidth}px`, width: `${leftPaneWidth}px` }
+            : undefined}
+        >
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="border-b border-white/5 px-6 py-4">
+              <p className="text-xs uppercase tracking-[0.3em] text-electric-light">Lesson {lesson.title}</p>
+              <h1 className="mt-2 text-xl font-semibold text-white">{lesson.summary}</h1>
+              <p className="mt-2 text-sm text-gray-300">Estimated time · {lesson.duration}</p>
+            </div>
 
-          <div className="flex border-b border-white/5">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={clsx(
-                  "flex-1 px-4 py-3 text-sm font-medium transition",
-                  activeTab === tab.id
-                    ? "border-b-2 border-electric text-white"
-                    : "border-b border-transparent text-gray-400 hover:text-gray-200",
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+            <div className="flex border-b border-white/5">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={clsx(
+                    "flex-1 px-4 py-3 text-sm font-medium transition",
+                    activeTab === tab.id
+                      ? "border-b-2 border-electric text-white"
+                      : "border-b border-transparent text-gray-400 hover:text-gray-200",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-          <div className="flex-1 overflow-y-auto px-4 py-4">
-            {activeTab === "course" && (
-              <div className="space-y-4 text-sm text-gray-300">
-                <p className="text-base text-gray-200">{content.intro}</p>
-                {content.courseSections.map((section) => (
-                  <div key={section.title} className="space-y-2 rounded-xl border border-white/5 bg-white/5 p-3">
-                    <h3 className="text-md font-semibold text-white">{section.title}</h3>
-                    <p className="text-sm">{section.description}</p>
-                    {section.bullets && (
-                      <ul className="list-disc space-y-1 pl-4 text-sm text-gray-300">
-                        {section.bullets.map((bullet) => (
-                          <li key={bullet}>{bullet}</li>
-                        ))}
-                      </ul>
-                    )}
-                    {section.codeSample && (
-                      <pre className="overflow-x-auto rounded-lg bg-black/60 p-3 text-xs text-gray-200">
-                        <code>{section.codeSample}</code>
-                      </pre>
-                    )}
+            <div className="px-4 py-4">
+              {activeTab === "course" && (
+                <div className="space-y-4 text-sm text-gray-300">
+                  <p className="text-base text-gray-200">{content.intro}</p>
+                  {content.courseSections.map((section) => (
+                    <div key={section.title} className="space-y-2 rounded-xl border border-white/5 bg-white/5 p-3">
+                      <h3 className="text-md font-semibold text-white">{section.title}</h3>
+                      <p className="text-sm">{section.description}</p>
+                      {section.bullets && (
+                        <ul className="list-disc space-y-1 pl-4 text-sm text-gray-300">
+                          {section.bullets.map((bullet) => (
+                            <li key={bullet}>{bullet}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {section.codeSample && (
+                        <pre className="overflow-x-auto rounded-lg bg-black/60 p-3 text-xs text-gray-200">
+                          <code>{section.codeSample}</code>
+                        </pre>
+                      )}
+                    </div>
+                  ))}
+                  <div className="rounded-xl border border-electric/30 bg-electric/10 p-3">
+                    <h3 className="text-sm font-semibold text-electric-light">Resources</h3>
+                    <ul className="mt-2 space-y-1 text-sm">
+                      {content.resources.map((resource) => (
+                        <li key={resource.href}>
+                          <a
+                            className="text-electric-light hover:text-electric"
+                            href={resource.href}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {resource.label}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                ))}
-                <div className="rounded-xl border border-electric/30 bg-electric/10 p-3">
-                  <h3 className="text-sm font-semibold text-electric-light">Resources</h3>
-                  <ul className="mt-2 space-y-1 text-sm">
-                    {content.resources.map((resource) => (
-                      <li key={resource.href}>
-                        <a
-                          className="text-electric-light hover:text-electric"
-                          href={resource.href}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          {resource.label}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
                 </div>
-              </div>
-            )}
+              )}
 
-            {activeTab === "video" && (
-              <div className="space-y-4">
-                <div className="aspect-video overflow-hidden rounded-2xl border border-white/10 shadow-xl shadow-black/40">
-                  <iframe
-                    src={content.videoUrl}
-                    title={`${lesson.title} preview`}
-                    className="h-full w-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                </div>
-                <p className="text-sm text-gray-300">
-                  Watch the guided walkthrough before diving into the exercise. Pause where needed and mirror the steps in the
-                  playground to build muscle memory.
-                </p>
-              </div>
-            )}
-
-            {activeTab === "exercise" && (
-              <div className="space-y-4 text-sm text-gray-300">
-                <div>
-                  <h3 className="text-md font-semibold text-white">Your mission</h3>
-                  <p className="mt-1 text-sm text-gray-200">{content.exercise.prompt}</p>
-                </div>
-                <div>
-                  <h4 className="text-xs uppercase tracking-[0.3em] text-electric-light">Objectives</h4>
-                  <ul className="mt-2 list-disc space-y-1 pl-4">
-                    {content.exercise.objectives.map((objective) => (
-                      <li key={objective}>{objective}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="rounded-xl border border-white/5 bg-black/40 p-3 text-xs text-gray-300">
-                  <p className="font-semibold text-gray-200">Starter files</p>
-                  <p className="mt-1">
-                    We load language-specific boilerplate in the playground. Switch languages to compare implementations or port
-                    your solution.
+              {activeTab === "video" && (
+                <div className="space-y-4">
+                  <div className="aspect-video overflow-hidden rounded-2xl border border-white/10 shadow-xl shadow-black/40">
+                    <iframe
+                      src={content.videoUrl}
+                      title={`${lesson.title} preview`}
+                      className="h-full w-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                  <p className="text-sm text-gray-300">
+                    Watch the guided walkthrough before diving into the exercise. Pause where needed and mirror the steps in the
+                    playground to build muscle memory.
                   </p>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
 
-          <div className="space-y-3 border-t border-white/5 bg-black/50 px-4 py-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-gray-300">Test panel</h2>
-              <span className="text-xs text-gray-500">Read only</span>
+              {activeTab === "exercise" && (
+                <div className="space-y-4 text-sm text-gray-300">
+                  <div>
+                    <h3 className="text-md font-semibold text-white">Your mission</h3>
+                    <p className="mt-1 text-sm text-gray-200">{content.exercise.prompt}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-xs uppercase tracking-[0.3em] text-electric-light">Objectives</h4>
+                    <ul className="mt-2 list-disc space-y-1 pl-4">
+                      {content.exercise.objectives.map((objective) => (
+                        <li key={objective}>{objective}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="rounded-xl border border-white/5 bg-black/40 p-3 text-xs text-gray-300">
+                    <p className="font-semibold text-gray-200">Starter files</p>
+                    <p className="mt-1">
+                      We load language-specific boilerplate in the playground. Switch languages to compare implementations or port
+                      your solution.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
-            <ul className="space-y-2 text-sm text-gray-300">
-              {content.exercise.tests.map((test, index) => {
-                const status = testStatuses[index] ?? "idle";
-                const { icon: StatusIcon, className, label } = testStatusStyles[status];
-                return (
-                  <li key={test.id} className="flex items-start gap-2 rounded-xl border border-white/5 bg-black/40 p-3">
-                    <StatusIcon className={clsx("mt-0.5 h-4 w-4", className)} />
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-white">{test.name}</p>
-                      <p className="text-xs text-gray-400">{test.description}</p>
-                      <div className="flex flex-wrap gap-3 text-[10px] uppercase tracking-[0.25em] text-gray-500">
-                        <span>Status · {label}</span>
-                        {test.inputExample && <span>Input · {test.inputExample}</span>}
-                        {test.expectedOutput && <span>Output · {test.expectedOutput}</span>}
+
+            <div className="space-y-3 border-t border-white/5 bg-black/50 px-4 py-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-gray-300">Test panel</h2>
+                <span className="text-xs text-gray-500">Read only</span>
+              </div>
+              <ul className="space-y-2 text-sm text-gray-300">
+                {content.exercise.tests.map((test, index) => {
+                  const status = testStatuses[index] ?? "idle";
+                  const { icon: StatusIcon, className, label } = testStatusStyles[status];
+                  return (
+                    <li key={test.id} className="flex items-start gap-2 rounded-xl border border-white/5 bg-black/40 p-3">
+                      <StatusIcon className={clsx("mt-0.5 h-4 w-4", className)} />
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-white">{test.name}</p>
+                        <p className="text-xs text-gray-400">{test.description}</p>
+                        <div className="flex flex-wrap gap-3 text-[10px] uppercase tracking-[0.25em] text-gray-500">
+                          <span>Status · {label}</span>
+                          {test.inputExample && <span>Input · {test.inputExample}</span>}
+                          {test.expectedOutput && <span>Output · {test.expectedOutput}</span>}
+                        </div>
                       </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            {nextLesson && (
-              <button
-                type="button"
-                onClick={() => navigate(`/lesson/${nextLesson.id}`)}
-                className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-white transition hover:border-electric hover:text-electric"
-              >
-                Next lesson
-                <ArrowRightIcon className="h-3 w-3" />
-              </button>
-            )}
+                    </li>
+                  );
+                })}
+              </ul>
+              {nextLesson && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/lesson/${nextLesson.id}`)}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-white transition hover:border-electric hover:text-electric"
+                >
+                  Next lesson
+                  <ArrowRightIcon className="h-3 w-3" />
+                </button>
+              )}
+            </div>
           </div>
         </section>
 
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          className={clsx(
+            "hidden lg:block h-full shrink-0 cursor-col-resize select-none bg-white/10 transition-colors",
+            isResizing ? "bg-electric" : "hover:bg-electric/80",
+          )}
+          style={{ width: RESIZER_WIDTH }}
+          onMouseDown={handleResizeStart}
+          onDoubleClick={handleResizeReset}
+          title="Drag to resize panels. Double-click to reset."
+        />
+
         {/* Codewars-style Playground Section */}
-        <section className="flex h-full min-h-0 flex-col border-l border-gray-700 bg-gray-900">
+        <section className="flex h-full min-h-0 flex-col border-l border-gray-700 bg-gray-900 lg:flex-1 lg:min-w-[360px]">
           {/* Playground Header */}
           <div className="flex items-center justify-between border-b border-gray-700 bg-gray-800 px-4 py-3">
             <div>
@@ -460,8 +590,8 @@ const LessonPage = () => {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-between border-t border-gray-700 bg-gray-800 px-4 py-3">
-            <div className="flex items-center gap-2 text-xs text-gray-400">
+          <div className="flex flex-wrap items-center gap-3 border-t border-gray-700 bg-gray-800 px-4 py-3">
+            <div className="flex flex-1 items-center gap-2 text-xs text-gray-400 min-w-[200px] sm:flex-none">
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                 submissionState === "passed" ? "bg-green-500/20 text-green-400" :
                 submissionState === "failed" ? "bg-red-500/20 text-red-400" :
@@ -472,7 +602,7 @@ const LessonPage = () => {
                  "⚡ Ready to Submit"}
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 justify-end sm:ml-auto">
               <button
                 type="button"
                 onClick={() => handleExecute("test")}
