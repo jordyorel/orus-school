@@ -41,8 +41,8 @@ const monacoLanguageMap: Record<string, string> = {
 
 const consolePlaceholder = "";
 
-const MIN_LEFT_WIDTH = 240;
-const MIN_RIGHT_WIDTH = 400;
+const MIN_LEFT_WIDTH = 0;
+const MIN_RIGHT_WIDTH = 0;
 const RESIZER_WIDTH = 8;
 const DEFAULT_CONSOLE_HEIGHT = 240;
 const MIN_CONSOLE_HEIGHT = 0;
@@ -554,7 +554,7 @@ export default function LessonPage() {
             />
 
             {/* Right column: editor + console */}
-            <section className="flex h-full min-h-0 flex-col border-l border-cw-border bg-cw-panel lg:flex-1 lg:min-w-[360px] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+            <section className="flex h-full min-h-0 flex-col border-l border-cw-border bg-cw-panel lg:flex-1 lg:min-w-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
               {/* Playground header */}
               <div className="flex items-center justify-between border-b border-cw-border-light bg-cw-panel-alt/70 px-4 py-3">
                 <div className="flex items-center gap-2">
