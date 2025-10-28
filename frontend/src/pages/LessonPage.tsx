@@ -421,8 +421,8 @@ export default function LessonPage() {
                   )}
 
                   {activeTab === "video" && (
-                    <div className="flex h-full min-h-0 flex-col space-y-4 overflow-y-auto pr-2">
-                      <div className="aspect-video overflow-hidden rounded-2xl border border-cw-border shadow-xl shadow-black/50">
+                    <div className="flex h-full min-h-0 flex-col space-y-4 overflow-y-auto pr-2 text-sm text-cw-text-muted">
+                      <div className="aspect-video w-full overflow-hidden">
                         <iframe
                           src={content.videoUrl}
                           title={`${lesson.title} preview`}
@@ -431,7 +431,7 @@ export default function LessonPage() {
                           allowFullScreen
                         />
                       </div>
-                      <p className="text-sm text-cw-text-muted">
+                      <p>
                         Watch the guided walkthrough before diving into the exercise. Pause where needed and mirror the steps in the
                         playground to build muscle memory.
                       </p>
