@@ -13,6 +13,11 @@ import {
 import clsx from "clsx";
 import { getLessonById } from "../data/courseDetails";
 
+/**
+ * Full page rewrite with AlgoExpert-like gutters (inset content area),
+ * while keeping the top navbar full-bleed.
+ */
+
 const tabs = [
   { id: "course", label: "Course" },
   { id: "video", label: "Video" },
@@ -37,64 +42,51 @@ const monacoLanguageMap: Record<string, string> = {
 const consolePlaceholder = "";
 
 const MIN_LEFT_WIDTH = 240;
-const MIN_RIGHT_WIDTH = 360;
+const MIN_RIGHT_WIDTH = 400;
 const RESIZER_WIDTH = 8;
-const DEFAULT_CONSOLE_HEIGHT = 200;
+const DEFAULT_CONSOLE_HEIGHT = 240;
 const MIN_CONSOLE_HEIGHT = 0;
 const MAX_CONSOLE_HEIGHT = 480;
 
-const LessonPage = () => {
+export default function LessonPage() {
   const { lessonId } = useParams();
   const navigate = useNavigate();
   const editorRef = useRef<any>(null);
   const layoutRef = useRef<HTMLDivElement | null>(null);
 
-  if (!lessonId) {
-    return <Navigate to="/landing" replace />;
-  }
+  if (!lessonId) return <Navigate to="/landing" replace />;
 
   const lessonResult = getLessonById(lessonId);
-
-  if (!lessonResult || !lessonResult.content) {
-    return <Navigate to="/course/c-foundations" replace />;
-  }
+  if (!lessonResult || !lessonResult.content) return <Navigate to="/course/c-foundations" replace />;
 
   const { course, lesson, content, nextLesson } = lessonResult;
+
   const languages = useMemo(() => Object.keys(content.exercise.starterCode), [content.exercise.starterCode]);
   const defaultLanguage = useMemo(() => {
-    if (languages.includes(content.exercise.defaultLanguage)) {
-      return content.exercise.defaultLanguage;
-    }
+    if (languages.includes(content.exercise.defaultLanguage)) return content.exercise.defaultLanguage;
     return (languages[0] as "c") ?? "c";
   }, [languages, content.exercise.defaultLanguage]);
 
   const [activeTab, setActiveTab] = useState<TabId>("course");
   const [language, setLanguage] = useState(defaultLanguage);
-  const [codeByLanguage, setCodeByLanguage] = useState<Record<string, string>>({
-    ...content.exercise.starterCode,
-  });
+  const [codeByLanguage, setCodeByLanguage] = useState<Record<string, string>>({ ...content.exercise.starterCode });
   const [consoleOutput, setConsoleOutput] = useState<string>(consolePlaceholder);
   const [isRunning, setIsRunning] = useState(false);
-  const [testStatuses, setTestStatuses] = useState<TestStatus[]>(
-    content.exercise.tests.map(() => "idle" as TestStatus),
-  );
+  const [testStatuses, setTestStatuses] = useState<TestStatus[]>(content.exercise.tests.map(() => "idle" as TestStatus));
   const [submissionState, setSubmissionState] = useState<"idle" | "submitting" | "passed" | "failed">("idle");
   const [leftPaneWidth, setLeftPaneWidth] = useState<number>(Number.NaN);
   const [isDesktop, setIsDesktop] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [consoleHeight, setConsoleHeight] = useState(DEFAULT_CONSOLE_HEIGHT);
   const [isConsoleResizing, setIsConsoleResizing] = useState(false);
-  const consoleResizeStateRef = useRef<{ startY: number; startHeight: number }>({
-    startY: 0,
-    startHeight: DEFAULT_CONSOLE_HEIGHT,
-  });
+  const consoleResizeStateRef = useRef<{ startY: number; startHeight: number }>({ startY: 0, startHeight: DEFAULT_CONSOLE_HEIGHT });
 
   const handleEditorDidMount = (editor: any) => {
     editorRef.current = editor;
-    // Focus the editor initially
     editor.focus();
   };
 
+  // reset on lesson change
   useEffect(() => {
     setActiveTab("course");
     setLanguage(defaultLanguage);
@@ -106,40 +98,28 @@ const LessonPage = () => {
   }, [content, defaultLanguage]);
 
   const updateLayoutDimensions = useCallback(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
+    if (typeof window === "undefined") return;
 
     const isLgViewport = window.innerWidth >= 1024;
     setIsDesktop(isLgViewport);
-
-    if (!layoutRef.current || !isLgViewport) {
-      return;
-    }
+    if (!layoutRef.current || !isLgViewport) return;
 
     const rect = layoutRef.current.getBoundingClientRect();
     const availableWidth = rect.width - RESIZER_WIDTH;
-    const defaultWidth = Math.max(availableWidth * 0.4, MIN_LEFT_WIDTH);
-    setLeftPaneWidth((current) => {
-      if (!Number.isFinite(current)) {
-        return Math.min(defaultWidth, Math.max(availableWidth - MIN_RIGHT_WIDTH, MIN_LEFT_WIDTH));
-      }
+    const defaultWidth = Math.max(availableWidth * 0.35, MIN_LEFT_WIDTH);
 
+    setLeftPaneWidth((current) => {
+      if (!Number.isFinite(current)) return Math.min(defaultWidth, Math.max(availableWidth - MIN_RIGHT_WIDTH, MIN_LEFT_WIDTH));
       const maxWidth = Math.max(availableWidth - MIN_RIGHT_WIDTH, MIN_LEFT_WIDTH);
       return Math.min(Math.max(current, MIN_LEFT_WIDTH), maxWidth);
     });
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
+    if (typeof window === "undefined") return;
     updateLayoutDimensions();
     window.addEventListener("resize", updateLayoutDimensions);
-    return () => {
-      window.removeEventListener("resize", updateLayoutDimensions);
-    };
+    return () => window.removeEventListener("resize", updateLayoutDimensions);
   }, [updateLayoutDimensions]);
 
   useEffect(() => {
@@ -149,71 +129,56 @@ const LessonPage = () => {
     }
   }, [isDesktop]);
 
+  // vertical resizer between panes
   useEffect(() => {
-    if (!isResizing || !isDesktop) {
-      return;
-    }
+    if (!isResizing || !isDesktop) return;
 
     const handleMouseMove = (event: MouseEvent) => {
-      if (!layoutRef.current) {
-        return;
-      }
-
+      if (!layoutRef.current) return;
       const rect = layoutRef.current.getBoundingClientRect();
       const availableWidth = rect.width - RESIZER_WIDTH;
       const pointerOffset = Math.min(Math.max(event.clientX - rect.left, MIN_LEFT_WIDTH), availableWidth);
       const maxWidth = Math.max(availableWidth - MIN_RIGHT_WIDTH, MIN_LEFT_WIDTH);
-      const nextWidth = Math.min(pointerOffset, maxWidth);
-      setLeftPaneWidth(nextWidth);
+      setLeftPaneWidth(Math.min(pointerOffset, maxWidth));
     };
 
-    const stopResizing = () => {
-      setIsResizing(false);
-    };
+    const stopResizing = () => setIsResizing(false);
 
-    const previousCursor = document.body.style.cursor;
-    const previousUserSelect = document.body.style.userSelect;
+    const prevCursor = document.body.style.cursor;
+    const prevSelect = document.body.style.userSelect;
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
 
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", stopResizing);
-
     return () => {
-      document.body.style.cursor = previousCursor;
-      document.body.style.userSelect = previousUserSelect;
+      document.body.style.cursor = prevCursor;
+      document.body.style.userSelect = prevSelect;
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", stopResizing);
     };
   }, [isResizing, isDesktop]);
 
+  // horizontal console resizer
   useEffect(() => {
-    if (!isConsoleResizing) {
-      return;
-    }
-
+    if (!isConsoleResizing) return;
     const handleMouseMove = (event: MouseEvent) => {
       const { startY, startHeight } = consoleResizeStateRef.current;
       const delta = startY - event.clientY;
-      const nextHeight = Math.min(Math.max(startHeight + delta, MIN_CONSOLE_HEIGHT), MAX_CONSOLE_HEIGHT);
-      setConsoleHeight(nextHeight);
+      setConsoleHeight(Math.min(Math.max(startHeight + delta, MIN_CONSOLE_HEIGHT), MAX_CONSOLE_HEIGHT));
     };
+    const stopResize = () => setIsConsoleResizing(false);
 
-    const stopResize = () => {
-      setIsConsoleResizing(false);
-    };
-
-    const previousCursor = document.body.style.cursor;
-    const previousUserSelect = document.body.style.userSelect;
+    const prevCursor = document.body.style.cursor;
+    const prevSelect = document.body.style.userSelect;
     document.body.style.cursor = "row-resize";
     document.body.style.userSelect = "none";
 
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", stopResize);
-
     return () => {
-      document.body.style.cursor = previousCursor;
-      document.body.style.userSelect = previousUserSelect;
+      document.body.style.cursor = prevCursor;
+      document.body.style.userSelect = prevSelect;
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", stopResize);
     };
@@ -221,17 +186,12 @@ const LessonPage = () => {
 
   const handleResizeStart = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault();
-    if (!isDesktop) {
-      return;
-    }
+    if (!isDesktop) return;
     setIsResizing(true);
   }, [isDesktop]);
 
   const handleResizeReset = useCallback(() => {
-    if (!layoutRef.current || !isDesktop) {
-      return;
-    }
-
+    if (!layoutRef.current || !isDesktop) return;
     const rect = layoutRef.current.getBoundingClientRect();
     const availableWidth = rect.width - RESIZER_WIDTH;
     const defaultWidth = Math.max(availableWidth * 0.4, MIN_LEFT_WIDTH);
@@ -241,47 +201,26 @@ const LessonPage = () => {
 
   const handleConsoleResizeStart = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault();
-    consoleResizeStateRef.current = {
-      startY: event.clientY,
-      startHeight: consoleHeight,
-    };
+    consoleResizeStateRef.current = { startY: event.clientY, startHeight: consoleHeight };
     setIsConsoleResizing(true);
   }, [consoleHeight]);
 
-  const handleConsoleResizeReset = useCallback(() => {
-    setConsoleHeight(DEFAULT_CONSOLE_HEIGHT);
-  }, []);
+  const handleConsoleResizeReset = useCallback(() => setConsoleHeight(DEFAULT_CONSOLE_HEIGHT), []);
 
   const currentCode = codeByLanguage[language] ?? "";
   const monacoLanguage = monacoLanguageMap[language] ?? "plaintext";
   const isConsoleCollapsed = consoleHeight <= MIN_CONSOLE_HEIGHT + 1;
 
   const updateCode = (value: string | undefined) => {
-    setCodeByLanguage((previous) => ({
-      ...previous,
-      [language]: value ?? "",
-    }));
+    setCodeByLanguage((prev) => ({ ...prev, [language]: value ?? "" }));
   };
 
   const handleExecute = async (mode: "run" | "test" | "submit") => {
     const isTestFlow = mode !== "run";
-    const nextConsoleMessage =
-      mode === "run"
-        ? "Compiling your program..."
-        : mode === "test"
-          ? "Running lesson tests..."
-          : "Running tests and updating your progress...";
-
 
     setIsRunning(true);
-
-    if (isTestFlow) {
-      setTestStatuses(content.exercise.tests.map(() => "running" as TestStatus));
-    }
-
-    if (mode === "submit") {
-      setSubmissionState("submitting");
-    }
+    if (isTestFlow) setTestStatuses(content.exercise.tests.map(() => "running" as TestStatus));
+    if (mode === "submit") setSubmissionState("submitting");
 
     let allTestsPassed = !isTestFlow;
 
@@ -289,68 +228,43 @@ const LessonPage = () => {
       const response = await fetch("/api/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          language,
-          code: currentCode,
-          lessonId,
-          tests: isTestFlow ? content.exercise.tests : undefined,
-        }),
+        body: JSON.stringify({ language, code: currentCode, lessonId, tests: isTestFlow ? content.exercise.tests : undefined }),
       });
 
-      const result = await response.json().catch(() => ({}));
-
+      const result = await response.json().catch(() => ({} as any));
       if (!response.ok) {
-        const errorMessage =
-          (typeof result.error === "string" && result.error) ||
-          (typeof result.message === "string" && result.message) ||
-          `Run failed with status ${response.status}`;
+        const errorMessage = (typeof result.error === "string" && result.error)
+          || (typeof result.message === "string" && result.message)
+          || `Run failed with status ${response.status}`;
         throw new Error(errorMessage);
       }
 
-      const output =
-        typeof result.output === "string"
-          ? result.output
-          : typeof result.stdout === "string"
-            ? result.stdout
-            : JSON.stringify(result, null, 2);
+      const output = typeof result.output === "string"
+        ? result.output
+        : typeof result.stdout === "string"
+          ? result.stdout
+          : JSON.stringify(result, null, 2);
 
       setConsoleOutput(output || "Execution finished with no stdout.");
 
       if (isTestFlow) {
         const rawResults = Array.isArray(result.results) ? result.results : [];
-        const resolvedStatuses = content.exercise.tests.map((test) => {
-          const match = rawResults.find(
-            (entry: { id?: string; name?: string; passed?: boolean; success?: boolean }) =>
-              entry.id === test.id || entry.name === test.name,
+        const resolved = content.exercise.tests.map((test) => {
+          const match = rawResults.find((entry: { id?: string; name?: string; passed?: boolean; success?: boolean }) =>
+            entry.id === test.id || entry.name === test.name,
           );
-
-          if (!match) {
-            allTestsPassed = false;
-            return "failed" as TestStatus;
-          }
-
+          if (!match) { allTestsPassed = false; return "failed" as TestStatus; }
           const didPass = match.passed ?? match.success ?? false;
-          if (!didPass) {
-            allTestsPassed = false;
-          }
-
+          if (!didPass) allTestsPassed = false;
           return didPass ? ("passed" as TestStatus) : ("failed" as TestStatus);
         });
-
-        if (rawResults.length === 0) {
-          allTestsPassed = false;
-        }
-
-        setTestStatuses(resolvedStatuses);
+        if (rawResults.length === 0) allTestsPassed = false;
+        setTestStatuses(resolved);
       }
 
       if (mode === "submit") {
         if (allTestsPassed) {
-          try {
-            await fetch(`/api/progress/complete/${lesson.id}`, { method: "POST" });
-          } catch (progressError) {
-            console.error("Failed to persist progress", progressError);
-          }
+          try { await fetch(`/api/progress/complete/${lesson.id}`, { method: "POST" }); } catch { }
           setSubmissionState("passed");
         } else {
           setSubmissionState("failed");
@@ -358,29 +272,18 @@ const LessonPage = () => {
       }
     } catch (error) {
       console.error("Failed to execute lesson code", error);
-      setConsoleOutput(
-        error instanceof Error
-          ? `We couldn't reach the runtime service: ${error.message}`
-          : "We couldn't reach the runtime service. Please try again.",
-      );
-
-      if (isTestFlow) {
-        setTestStatuses(content.exercise.tests.map(() => "failed" as TestStatus));
-      }
-
-      if (mode === "submit") {
-        setSubmissionState("failed");
-      }
+      setConsoleOutput(error instanceof Error ? `We couldn't reach the runtime service: ${error.message}` : "We couldn't reach the runtime service. Please try again.");
+      if (isTestFlow) setTestStatuses(content.exercise.tests.map(() => "failed" as TestStatus));
+      if (mode === "submit") setSubmissionState("failed");
     } finally {
       setIsRunning(false);
-      if (mode !== "submit") {
-        setSubmissionState((previous) => (previous === "submitting" ? "idle" : previous));
-      }
+      if (mode !== "submit") setSubmissionState((p) => (p === "submitting" ? "idle" : p));
     }
   };
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-cw-body text-gray-100">
+      {/* Full-bleed navbar (unchanged) */}
       <header className="flex items-center justify-between border-b border-cw-border bg-cw-surface/90 px-6 py-4 shadow-[0_2px_0_rgba(0,0,0,0.4)] backdrop-blur">
         <div className="flex items-center gap-4">
           <Link to={`/course/${course.slug}`} className="text-sm font-semibold text-cw-accent-light hover:text-cw-accent">
@@ -400,311 +303,299 @@ const LessonPage = () => {
         </div>
       </header>
 
-      <div ref={layoutRef} className="flex flex-1 min-h-0 flex-col bg-gradient-to-br from-cw-surface via-cw-body to-cw-panel lg:flex-row">
-        <section
-          className="flex h-full min-h-0 flex-col overflow-hidden border-b border-cw-border bg-cw-panel/95 lg:border-r lg:flex-shrink-0"
-          style={isDesktop && Number.isFinite(leftPaneWidth)
-            ? { flexBasis: `${leftPaneWidth}px`, width: `${leftPaneWidth}px` }
-            : undefined}
-        >
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            <div className="border-b border-cw-border-light px-6 py-4 bg-cw-surface/90">
-              <p className="text-xs uppercase tracking-[0.3em] text-cw-accent">Lesson {lesson.title}</p>
-              <h1 className="mt-2 text-xl font-semibold text-white">{lesson.summary}</h1>
-              {/* <p className="mt-2 text-sm text-cw-text-muted">Estimated time · {lesson.duration}</p> */}
-            </div>
+      {/* Gutters wrapper: centers content and adds top/bottom/side spacing like AlgoExpert */}
+      <div className="flex-1 min-h-0">
+        <div className="mx-auto h-full w-full max-w-screen-2xl px-4 md:px-6 lg:px-8 py-4 lg:py-5">
+          {/* Inset card that contains the two-pane layout */}
+          <div
+            ref={layoutRef}
+            className="flex h-full min-h-0 flex-col bg-cw-panel lg:flex-row rounded-xl border border-cw-border/80 shadow-[0_8px_24px_rgba(0,0,0,0.35)] overflow-hidden"
+          >
+            {/* Left column: lesson content / tabs */}
+            <section
+              className="flex h-full min-h-0 flex-col overflow-hidden border-b border-cw-border bg-cw-panel/95 lg:border-r lg:flex-shrink-0"
+              style={isDesktop && Number.isFinite(leftPaneWidth) ? { flexBasis: `${leftPaneWidth}px`, width: `${leftPaneWidth}px` } : undefined}
+            >
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                <div className="border-b border-cw-border-light px-6 py-4 bg-cw-surface/90">
+                  <p className="text-xs uppercase tracking-[0.3em] text-cw-accent">Lesson {lesson.title}</p>
+                  <h1 className="mt-2 text-xl font-semibold text-white">{lesson.summary}</h1>
+                </div>
 
-            <div className="flex border-b border-cw-border-light bg-cw-surface/60">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={clsx(
-                    "flex-1 px-4 py-3 text-sm font-medium transition",
-                    activeTab === tab.id
-                      ? "border-b-2 border-cw-accent text-white"
-                      : "border-b border-transparent text-cw-text-muted hover:text-gray-200",
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="px-4 py-4">
-              {activeTab === "course" && (
-                <article className="space-y-6 rounded-xl border border-cw-border-light bg-cw-panel-alt/90 p-5 text-sm text-cw-text-muted shadow-[0_8px_16px_rgba(0,0,0,0.45)]">
-                  <p className="text-base text-gray-200">{content.intro}</p>
-                  {content.courseSections.map((section, index) => (
-                    <section
-                      key={section.title}
-                      className={clsx("space-y-3", index > 0 && "border-t border-cw-border-light pt-4")}
+                <div className="flex border-b border-cw-border-light bg-cw-surface/60">
+                  {tabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveTab(tab.id)}
+                      className={clsx(
+                        "flex-1 px-4 py-3 text-sm font-medium transition",
+                        activeTab === tab.id ? "border-b-2 border-cw-accent text-white" : "border-b border-transparent text-cw-text-muted hover:text-gray-200",
+                      )}
                     >
-                      <h3 className="text-md font-semibold text-white">{section.title}</h3>
-                      <p className="text-sm text-cw-text-muted">{section.description}</p>
-                      {section.bullets && (
-                        <ul className="list-disc space-y-1 pl-4 text-sm text-cw-text-muted">
-                          {section.bullets.map((bullet) => (
-                            <li key={bullet}>{bullet}</li>
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="px-4 py-4">
+                  {activeTab === "course" && (
+                    <article className="space-y-6 rounded-xl border border-cw-border-light bg-cw-panel-alt/90 p-5 text-sm text-cw-text-muted shadow-[0_8px_16px_rgba(0,0,0,0.45)]">
+                      <p className="text-base text-gray-200">{content.intro}</p>
+                      {content.courseSections.map((section, index) => (
+                        <section key={section.title} className={clsx("space-y-3", index > 0 && "border-t border-cw-border-light pt-4")}>
+                          <h3 className="text-md font-semibold text-white">{section.title}</h3>
+                          <p className="text-sm text-cw-text-muted">{section.description}</p>
+                          {section.bullets && (
+                            <ul className="list-disc space-y-1 pl-4 text-sm text-cw-text-muted">
+                              {section.bullets.map((bullet) => (
+                                <li key={bullet}>{bullet}</li>
+                              ))}
+                            </ul>
+                          )}
+                          {section.codeSample && (
+                            <pre className="overflow-x-auto rounded-lg border border-cw-border bg-cw-surface p-3 text-xs text-gray-200 shadow-inner shadow-black/60">
+                              <code>{section.codeSample}</code>
+                            </pre>
+                          )}
+                        </section>
+                      ))}
+                      {content.resources.length > 0 && (
+                        <footer className="border-t border-cw-border-light pt-4">
+                          <h3 className="text-sm font-semibold text-cw-accent-light">Resources</h3>
+                          <ul className="mt-2 space-y-1 text-sm text-cw-text-muted">
+                            {content.resources.map((resource) => (
+                              <li key={resource.href}>
+                                <a className="text-cw-accent-light hover:text-cw-accent" href={resource.href} target="_blank" rel="noreferrer">
+                                  {resource.label}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </footer>
+                      )}
+                    </article>
+                  )}
+
+                  {activeTab === "video" && (
+                    <div className="space-y-4">
+                      <div className="aspect-video overflow-hidden rounded-2xl border border-cw-border shadow-xl shadow-black/50">
+                        <iframe
+                          src={content.videoUrl}
+                          title={`${lesson.title} preview`}
+                          className="h-full w-full"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      </div>
+                      <p className="text-sm text-cw-text-muted">
+                        Watch the guided walkthrough before diving into the exercise. Pause where needed and mirror the steps in the
+                        playground to build muscle memory.
+                      </p>
+                    </div>
+                  )}
+
+                  {activeTab === "exercise" && (
+                    <div className="space-y-4 text-sm text-cw-text-muted">
+                      <div>
+                        <h3 className="text-md font-semibold text-white">Your mission</h3>
+                        <p className="mt-1 text-sm text-gray-200">{content.exercise.prompt}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-xs uppercase tracking-[0.3em] text-cw-accent">Objectives</h4>
+                        <ul className="mt-2 list-disc space-y-1 pl-4">
+                          {content.exercise.objectives.map((objective) => (
+                            <li key={objective}>{objective}</li>
                           ))}
                         </ul>
-                      )}
-                      {section.codeSample && (
-                        <pre className="overflow-x-auto rounded-lg border border-cw-border bg-cw-surface p-3 text-xs text-gray-200 shadow-inner shadow-black/60">
-                          <code>{section.codeSample}</code>
-                        </pre>
-                      )}
-                    </section>
-                  ))}
-                  {content.resources.length > 0 && (
-                    <footer className="border-t border-cw-border-light pt-4">
-                      <h3 className="text-sm font-semibold text-cw-accent-light">Resources</h3>
-                      <ul className="mt-2 space-y-1 text-sm text-cw-text-muted">
-                        {content.resources.map((resource) => (
-                          <li key={resource.href}>
-                            <a
-                              className="text-cw-accent-light hover:text-cw-accent"
-                              href={resource.href}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              {resource.label}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </footer>
+                      </div>
+                      <div className="rounded-xl border border-cw-border bg-cw-surface p-3 text-xs text-cw-text-muted shadow-inner shadow-black/40">
+                        <p className="font-semibold text-gray-200">Starter files</p>
+                        <p className="mt-1">
+                          We load language-specific boilerplate in the playground. Switch languages to compare implementations or
+                          port your solution.
+                        </p>
+                      </div>
+                    </div>
                   )}
-                </article>
-              )}
-
-              {activeTab === "video" && (
-                <div className="space-y-4">
-                  <div className="aspect-video overflow-hidden rounded-2xl border border-cw-border shadow-xl shadow-black/50">
-                    <iframe
-                      src={content.videoUrl}
-                      title={`${lesson.title} preview`}
-                      className="h-full w-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  </div>
-                  <p className="text-sm text-cw-text-muted">
-                    Watch the guided walkthrough before diving into the exercise. Pause where needed and mirror the steps in the
-                    playground to build muscle memory.
-                  </p>
                 </div>
-              )}
 
-              {activeTab === "exercise" && (
-                <div className="space-y-4 text-sm text-cw-text-muted">
-                  <div>
-                    <h3 className="text-md font-semibold text-white">Your mission</h3>
-                    <p className="mt-1 text-sm text-gray-200">{content.exercise.prompt}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-xs uppercase tracking-[0.3em] text-cw-accent">Objectives</h4>
-                    <ul className="mt-2 list-disc space-y-1 pl-4">
-                      {content.exercise.objectives.map((objective) => (
-                        <li key={objective}>{objective}</li>
-                      ))}
+                {activeTab === "exercise" && (
+                  <div className="space-y-3 border-t border-cw-border bg-cw-panel-alt/70 px-4 py-4">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-gray-300">Test panel</h2>
+                    </div>
+                    <ul className="space-y-2 text-sm text-cw-text-muted">
+                      {content.exercise.tests.map((test, index) => {
+                        const status = testStatuses[index] ?? "idle";
+                        const { icon: StatusIcon, className, label } = testStatusStyles[status];
+                        return (
+                          <li key={test.id} className="flex items-start gap-2 rounded-xl border border-cw-border bg-cw-surface/90 p-3 shadow-inner shadow-black/40">
+                            <StatusIcon className={clsx("mt-0.5 h-4 w-4", className)} />
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-white">{test.name}</p>
+                              <p className="text-xs text-cw-text-muted">{test.description}</p>
+                              <div className="flex flex-wrap gap-3 text-[10px] uppercase tracking-[0.25em] text-cw-text-muted">
+                                <span>Status · {label}</span>
+                                {test.inputExample && <span>Input · {test.inputExample}</span>}
+                                {test.expectedOutput && <span>Output · {test.expectedOutput}</span>}
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
                     </ul>
+                    {nextLesson && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/lesson/${nextLesson.id}`)}
+                        className="inline-flex items-center gap-2 rounded-full border border-cw-border-light px-3 py-1 text-xs font-semibold text-cw-accent-light transition hover:border-cw-accent hover:text-cw-accent"
+                      >
+                        Next lesson
+                        <ArrowRightIcon className="h-3 w-3" />
+                      </button>
+                    )}
                   </div>
-                  <div className="rounded-xl border border-cw-border bg-cw-surface p-3 text-xs text-cw-text-muted shadow-inner shadow-black/40">
-                    <p className="font-semibold text-gray-200">Starter files</p>
-                    <p className="mt-1">
-                      We load language-specific boilerplate in the playground. Switch languages to compare implementations or port
-                      your solution.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {activeTab === "exercise" && (
-              <div className="space-y-3 border-t border-cw-border bg-cw-panel-alt/70 px-4 py-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-gray-300">Test panel</h2>
-                </div>
-                <ul className="space-y-2 text-sm text-cw-text-muted">
-                  {content.exercise.tests.map((test, index) => {
-                    const status = testStatuses[index] ?? "idle";
-                    const { icon: StatusIcon, className, label } = testStatusStyles[status];
-                    return (
-                      <li key={test.id} className="flex items-start gap-2 rounded-xl border border-cw-border bg-cw-surface/90 p-3 shadow-inner shadow-black/40">
-                        <StatusIcon className={clsx("mt-0.5 h-4 w-4", className)} />
-                        <div className="space-y-1">
-                          <p className="text-sm font-semibold text-white">{test.name}</p>
-                          <p className="text-xs text-cw-text-muted">{test.description}</p>
-                          <div className="flex flex-wrap gap-3 text-[10px] uppercase tracking-[0.25em] text-cw-text-muted">
-                            <span>Status · {label}</span>
-                            {test.inputExample && <span>Input · {test.inputExample}</span>}
-                            {test.expectedOutput && <span>Output · {test.expectedOutput}</span>}
-                          </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-                {nextLesson && (
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/lesson/${nextLesson.id}`)}
-                    className="inline-flex items-center gap-2 rounded-full border border-cw-border-light px-3 py-1 text-xs font-semibold text-cw-accent-light transition hover:border-cw-accent hover:text-cw-accent"
-                  >
-                    Next lesson
-                    <ArrowRightIcon className="h-3 w-3" />
-                  </button>
                 )}
               </div>
-            )}
-          </div>
-        </section>
+            </section>
 
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          className={clsx(
-            "hidden lg:block h-full shrink-0 cursor-col-resize select-none bg-cw-border/80 transition-colors",
-            isResizing ? "bg-cw-accent" : "hover:bg-cw-accent/60",
-          )}
-          style={{ width: RESIZER_WIDTH }}
-          onMouseDown={handleResizeStart}
-          onDoubleClick={handleResizeReset}
-          title="Drag to resize panels. Double-click to reset."
-        />
-
-        {/* Codewars-style Playground Section */}
-        <section className="flex h-full min-h-0 flex-col border-l border-cw-border bg-cw-panel lg:flex-1 lg:min-w-[360px] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-          {/* Playground Header */}
-          <div className="flex items-center justify-between border-b border-cw-border-light bg-cw-panel-alt/70 px-4 py-3">
-
-            <div className="flex items-center gap-2">
-              <select
-                value={language}
-                onChange={(event) => setLanguage(event.target.value as typeof language)}
-                className="rounded border border-cw-border bg-cw-panel-alt/80 px-2 py-1 text-xs text-white shadow-inner shadow-black/40 focus:border-cw-accent focus:outline-none"
-              >
-                {languages.map((lang) => (
-                  <option key={lang} value={lang}>
-                    {lang.toUpperCase()}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => handleExecute("run")}
-                disabled={isRunning}
-                className="flex items-center space-x-1 rounded border border-cw-border bg-cw-accent px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-cw-accent-light disabled:border-cw-border disabled:bg-cw-accent/50"
-              >
-                <PlayCircleIcon className="h-3 w-3" />
-                <span>Run Code</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Code Editor */}
-          <div className="flex flex-1 min-h-0 flex-col">
-            <div className="border-b border-cw-border bg-cw-panel/80 p-2">
-              <h3 className="text-sm font-semibold text-white">Your Solution</h3>
-            </div>
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <Editor
-                height="100%"
-                language={monacoLanguage}
-                theme="vs-dark"
-                value={currentCode}
-                onChange={updateCode}
-                onMount={handleEditorDidMount}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                  lineNumbers: "on",
-                  renderLineHighlight: "all",
-                  scrollbar: {
-                    vertical: "visible",
-                    horizontal: "visible",
-                  },
-                }}
-              />
-            </div>
+            {/* Vertical resizer */}
             <div
               role="separator"
-              aria-orientation="horizontal"
+              aria-orientation="vertical"
               className={clsx(
-                "h-2 flex-none cursor-row-resize select-none bg-cw-border/70 transition-colors",
-                isConsoleResizing ? "bg-cw-accent" : "hover:bg-cw-accent/60",
+                "hidden lg:block h-full shrink-0 cursor-col-resize select-none bg-cw-border/80 transition-colors",
+                isResizing ? "bg-cw-accent" : "hover:bg-cw-accent/60",
               )}
-              onMouseDown={handleConsoleResizeStart}
-              onDoubleClick={handleConsoleResizeReset}
-              title="Drag to resize the console. Double-click to reset."
+              style={{ width: RESIZER_WIDTH }}
+              onMouseDown={handleResizeStart}
+              onDoubleClick={handleResizeReset}
+              title="Drag to resize panels. Double-click to reset."
             />
-            <div
-              className={clsx(
-                "flex flex-none flex-col border-t border-cw-border bg-cw-panel",
-                isConsoleCollapsed && "border-t-transparent",
-              )}
-              style={{
-                height: `${consoleHeight}px`,
-                flexBasis: `${consoleHeight}px`,
-                minHeight: `${MIN_CONSOLE_HEIGHT}px`,
-                maxHeight: `${MAX_CONSOLE_HEIGHT}px`,
-              }}
-            >
-              {!isConsoleCollapsed && (
-                <>
-                  <div className="flex items-center justify-between border-b border-cw-border-light px-3 py-2">
-                    <h4 className="text-sm font-semibold text-white">Output Console</h4>
-                  </div>
-                  <pre className="flex-1 overflow-y-auto bg-cw-surface p-3 font-mono text-xs text-gray-300 whitespace-pre-wrap">
-                    {consoleOutput}
-                  </pre>
-                </>
-              )}
-            </div>
-          </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3 border-t border-cw-border bg-cw-panel px-4 py-3">
-            <div className="flex flex-1 items-center gap-2 text-xs text-cw-text-muted min-w-[200px] sm:flex-none">
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                submissionState === "passed" ? "bg-emerald-500/20 text-emerald-300" :
-                submissionState === "failed" ? "bg-cw-accent/25 text-cw-accent-light" :
-                "bg-cw-border/60 text-cw-text-muted"
-              }`}>
-                {submissionState === "passed" ? "✅ All Tests Passed" : 
-                 submissionState === "failed" ? "❌ Tests Failed" : 
-                 "⚡ Ready to Submit"}
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 justify-end sm:ml-auto">
-              <button
-                type="button"
-                onClick={() => handleExecute("test")}
-                disabled={isRunning}
-                className="flex items-center space-x-1 rounded border border-cw-border-light bg-cw-panel-alt px-2 py-1 text-xs font-medium text-white transition-colors hover:border-cw-accent hover:text-cw-accent-light disabled:border-cw-border"
-              >
-                <ArrowPathIcon className="h-3 w-3" />
-                <span>Run Tests</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleExecute("submit")}
-                disabled={isRunning}
-                className="flex items-center space-x-1 rounded border border-cw-border bg-cw-accent px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-cw-accent-light disabled:bg-cw-accent/40"
-              >
-                <CheckCircleIcon className="h-3 w-3" />
-                <span>Submit</span>
-              </button>
-            </div>
+            {/* Right column: editor + console */}
+            <section className="flex h-full min-h-0 flex-col border-l border-cw-border bg-cw-panel lg:flex-1 lg:min-w-[360px] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+              {/* Playground header */}
+              <div className="flex items-center justify-between border-b border-cw-border-light bg-cw-panel-alt/70 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <select
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value as typeof language)}
+                    className="rounded border border-cw-border bg-cw-panel-alt/80 px-2 py-1 text-xs text-white shadow-inner shadow-black/40 focus:border-cw-accent focus:outline-none"
+                  >
+                    {languages.map((lang) => (
+                      <option key={lang} value={lang}>{lang.toUpperCase()}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => handleExecute("run")}
+                    disabled={isRunning}
+                    className="flex items-center space-x-1 rounded border border-cw-border bg-cw-accent px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-cw-accent-light disabled:border-cw-border disabled:bg-cw-accent/50"
+                  >
+                    <PlayCircleIcon className="h-3 w-3" />
+                    <span>Run Code</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Editor */}
+              <div className="flex flex-1 min-h-0 flex-col">
+                <div className="border-b border-cw-border bg-cw-panel/80 p-2">
+                  <h3 className="text-sm font-semibold text-white">Your Solution</h3>
+                </div>
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <Editor
+                    height="100%"
+                    language={monacoLanguage}
+                    theme="vs-dark"
+                    value={currentCode}
+                    onChange={updateCode}
+                    onMount={handleEditorDidMount}
+                    options={{
+                      minimap: { enabled: false },
+                      fontSize: 14,
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                      lineNumbers: "on",
+                      renderLineHighlight: "all",
+                      scrollbar: { vertical: "visible", horizontal: "visible" },
+                    }}
+                  />
+                </div>
+
+                {/* Console resizer */}
+                <div
+                  role="separator"
+                  aria-orientation="horizontal"
+                  className={clsx(
+                    "h-2 flex-none cursor-row-resize select-none bg-cw-border/70 transition-colors",
+                    isConsoleResizing ? "bg-cw-accent" : "hover:bg-cw-accent/60",
+                  )}
+                  onMouseDown={handleConsoleResizeStart}
+                  onDoubleClick={handleConsoleResizeReset}
+                  title="Drag to resize the console. Double-click to reset."
+                />
+
+                {/* Console */}
+                <div
+                  className={clsx(
+                    "flex flex-none flex-col border-t border-cw-border bg-cw-panel",
+                    isConsoleCollapsed && "border-t-transparent",
+                  )}
+                  style={{ height: `${consoleHeight}px`, flexBasis: `${consoleHeight}px`, minHeight: `${MIN_CONSOLE_HEIGHT}px`, maxHeight: `${MAX_CONSOLE_HEIGHT}px` }}
+                >
+                  {!isConsoleCollapsed && (
+                    <>
+                      <div className="flex items-center justify-between border-b border-cw-border-light px-3 py-2">
+                        <h4 className="text-sm font-semibold text-white">Output Console</h4>
+                      </div>
+                      <pre className="flex-1 overflow-y-auto bg-cw-surface p-3 font-mono text-xs text-gray-300 whitespace-pre-wrap">{consoleOutput}</pre>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-wrap items-center gap-3 border-t border-cw-border bg-cw-panel px-4 py-3">
+                <div className="flex flex-1 items-center gap-2 text-xs text-cw-text-muted min-w-[200px] sm:flex-none">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${submissionState === "passed"
+                        ? "bg-emerald-500/20 text-emerald-300"
+                        : submissionState === "failed"
+                          ? "bg-cw-accent/25 text-cw-accent-light"
+                          : "bg-cw-border/60 text-cw-text-muted"
+                      }`}
+                  >
+                    {submissionState === "passed" ? "✅ All Tests Passed" : submissionState === "failed" ? "❌ Tests Failed" : "⚡ Ready to Submit"}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 justify-end sm:ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleExecute("test")}
+                    disabled={isRunning}
+                    className="flex items-center space-x-1 rounded border border-cw-border-light bg-cw-panel-alt px-2 py-1 text-xs font-medium text-white transition-colors hover:border-cw-accent hover:text-cw-accent-light disabled:border-cw-border"
+                  >
+                    <ArrowPathIcon className="h-3 w-3" />
+                    <span>Run Tests</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExecute("submit")}
+                    disabled={isRunning}
+                    className="flex items-center space-x-1 rounded border border-cw-border bg-cw-accent px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-cw-accent-light disabled:bg-cw-accent/40"
+                  >
+                    <CheckCircleIcon className="h-3 w-3" />
+                    <span>Submit</span>
+                  </button>
+                </div>
+              </div>
+            </section>
           </div>
-        </section>
+        </div>
       </div>
     </div>
   );
-};
-
-export default LessonPage;
+}
