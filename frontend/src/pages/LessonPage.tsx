@@ -558,7 +558,8 @@ export default function LessonPage() {
             {/* Right column: editor + console */}
             <section className="flex h-full min-h-0 flex-col border-l border-cw-border bg-cw-panel lg:flex-1 lg:min-w-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
               {/* Playground header */}
-              <div className="flex items-center justify-between border-b border-cw-border-light bg-cw-panel-alt/70 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cw-border-light bg-cw-panel-alt/70 px-4 py-3">
+                <h3 className="text-sm font-semibold text-white">Your Solution</h3>
                 <div className="flex items-center gap-2">
                   <select
                     value={language}
@@ -583,9 +584,6 @@ export default function LessonPage() {
 
               {/* Editor */}
               <div className="flex flex-1 min-h-0 flex-col">
-                <div className="border-b border-cw-border bg-cw-panel/80 p-2">
-                  <h3 className="text-sm font-semibold text-white">Your Solution</h3>
-                </div>
                 <div className="flex-1 min-h-0 overflow-hidden">
                   <Editor
                     height="100%"
