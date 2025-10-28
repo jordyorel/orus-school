@@ -350,7 +350,7 @@ export default function LessonPage() {
           {/* Inset card that contains the two-pane layout */}
           <div
             ref={layoutRef}
-            className="flex h-full min-h-0 flex-col bg-cw-panel lg:flex-row rounded-xl border border-cw-border/80 shadow-[0_8px_24px_rgba(0,0,0,0.35)] overflow-hidden"
+            className="flex h-full min-h-0 flex-col bg-cw-panel lg:flex-row rounded-lg border border-cw-border/80 shadow-[0_8px_24px_rgba(0,0,0,0.20)] overflow-hidden"
           >
             {/* Left column: lesson content / tabs */}
             <section
