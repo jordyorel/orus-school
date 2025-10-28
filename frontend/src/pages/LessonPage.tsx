@@ -34,12 +34,14 @@ const monacoLanguageMap: Record<string, string> = {
   c: "c",
 };
 
-const consolePlaceholder =
-  "Welcome to the Orus playground. Run the starter code or write your own solution to see output here.";
+const consolePlaceholder = "";
 
 const MIN_LEFT_WIDTH = 240;
 const MIN_RIGHT_WIDTH = 360;
 const RESIZER_WIDTH = 8;
+const DEFAULT_CONSOLE_HEIGHT = 200;
+const MIN_CONSOLE_HEIGHT = 0;
+const MAX_CONSOLE_HEIGHT = 480;
 
 const LessonPage = () => {
   const { lessonId } = useParams();
@@ -71,7 +73,7 @@ const LessonPage = () => {
   const [codeByLanguage, setCodeByLanguage] = useState<Record<string, string>>({
     ...content.exercise.starterCode,
   });
-  const [consoleOutput, setConsoleOutput] = useState(consolePlaceholder);
+  const [consoleOutput, setConsoleOutput] = useState<string>(consolePlaceholder);
   const [isRunning, setIsRunning] = useState(false);
   const [testStatuses, setTestStatuses] = useState<TestStatus[]>(
     content.exercise.tests.map(() => "idle" as TestStatus),
@@ -80,6 +82,12 @@ const LessonPage = () => {
   const [leftPaneWidth, setLeftPaneWidth] = useState<number>(Number.NaN);
   const [isDesktop, setIsDesktop] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [consoleHeight, setConsoleHeight] = useState(DEFAULT_CONSOLE_HEIGHT);
+  const [isConsoleResizing, setIsConsoleResizing] = useState(false);
+  const consoleResizeStateRef = useRef<{ startY: number; startHeight: number }>({
+    startY: 0,
+    startHeight: DEFAULT_CONSOLE_HEIGHT,
+  });
 
   const handleEditorDidMount = (editor: any) => {
     editorRef.current = editor;
@@ -94,6 +102,7 @@ const LessonPage = () => {
     setConsoleOutput(consolePlaceholder);
     setTestStatuses(content.exercise.tests.map(() => "idle" as TestStatus));
     setSubmissionState("idle");
+    setConsoleHeight(DEFAULT_CONSOLE_HEIGHT);
   }, [content, defaultLanguage]);
 
   const updateLayoutDimensions = useCallback(() => {
@@ -136,6 +145,7 @@ const LessonPage = () => {
   useEffect(() => {
     if (!isDesktop) {
       setIsResizing(false);
+      setIsConsoleResizing(false);
     }
   }, [isDesktop]);
 
@@ -177,6 +187,38 @@ const LessonPage = () => {
     };
   }, [isResizing, isDesktop]);
 
+  useEffect(() => {
+    if (!isConsoleResizing) {
+      return;
+    }
+
+    const handleMouseMove = (event: MouseEvent) => {
+      const { startY, startHeight } = consoleResizeStateRef.current;
+      const delta = startY - event.clientY;
+      const nextHeight = Math.min(Math.max(startHeight + delta, MIN_CONSOLE_HEIGHT), MAX_CONSOLE_HEIGHT);
+      setConsoleHeight(nextHeight);
+    };
+
+    const stopResize = () => {
+      setIsConsoleResizing(false);
+    };
+
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", stopResize);
+
+    return () => {
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", stopResize);
+    };
+  }, [isConsoleResizing]);
+
   const handleResizeStart = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (!isDesktop) {
@@ -197,8 +239,22 @@ const LessonPage = () => {
     setLeftPaneWidth(Math.min(defaultWidth, maxWidth));
   }, [isDesktop]);
 
+  const handleConsoleResizeStart = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    consoleResizeStateRef.current = {
+      startY: event.clientY,
+      startHeight: consoleHeight,
+    };
+    setIsConsoleResizing(true);
+  }, [consoleHeight]);
+
+  const handleConsoleResizeReset = useCallback(() => {
+    setConsoleHeight(DEFAULT_CONSOLE_HEIGHT);
+  }, []);
+
   const currentCode = codeByLanguage[language] ?? "";
   const monacoLanguage = monacoLanguageMap[language] ?? "plaintext";
+  const isConsoleCollapsed = consoleHeight <= MIN_CONSOLE_HEIGHT + 1;
 
   const updateCode = (value: string | undefined) => {
     setCodeByLanguage((previous) => ({
@@ -216,7 +272,7 @@ const LessonPage = () => {
           ? "Running lesson tests..."
           : "Running tests and updating your progress...";
 
-    setConsoleOutput(nextConsoleMessage);
+
     setIsRunning(true);
 
     if (isTestFlow) {
@@ -355,7 +411,7 @@ const LessonPage = () => {
             <div className="border-b border-cw-border-light px-6 py-4 bg-cw-surface/90">
               <p className="text-xs uppercase tracking-[0.3em] text-cw-accent">Lesson {lesson.title}</p>
               <h1 className="mt-2 text-xl font-semibold text-white">{lesson.summary}</h1>
-              <p className="mt-2 text-sm text-cw-text-muted">Estimated time · {lesson.duration}</p>
+              {/* <p className="mt-2 text-sm text-cw-text-muted">Estimated time · {lesson.duration}</p> */}
             </div>
 
             <div className="flex border-b border-cw-border-light bg-cw-surface/60">
@@ -378,10 +434,13 @@ const LessonPage = () => {
 
             <div className="px-4 py-4">
               {activeTab === "course" && (
-                <div className="space-y-4 text-sm text-cw-text-muted">
+                <article className="space-y-6 rounded-xl border border-cw-border-light bg-cw-panel-alt/90 p-5 text-sm text-cw-text-muted shadow-[0_8px_16px_rgba(0,0,0,0.45)]">
                   <p className="text-base text-gray-200">{content.intro}</p>
-                  {content.courseSections.map((section) => (
-                    <div key={section.title} className="space-y-2 rounded-xl border border-cw-border-light bg-cw-panel-alt/90 p-3 shadow-[0_8px_16px_rgba(0,0,0,0.45)]">
+                  {content.courseSections.map((section, index) => (
+                    <section
+                      key={section.title}
+                      className={clsx("space-y-3", index > 0 && "border-t border-cw-border-light pt-4")}
+                    >
                       <h3 className="text-md font-semibold text-white">{section.title}</h3>
                       <p className="text-sm text-cw-text-muted">{section.description}</p>
                       {section.bullets && (
@@ -396,26 +455,28 @@ const LessonPage = () => {
                           <code>{section.codeSample}</code>
                         </pre>
                       )}
-                    </div>
+                    </section>
                   ))}
-                  <div className="rounded-xl border border-cw-border-light bg-cw-panel-alt/80 p-3">
-                    <h3 className="text-sm font-semibold text-cw-accent-light">Resources</h3>
-                    <ul className="mt-2 space-y-1 text-sm text-cw-text-muted">
-                      {content.resources.map((resource) => (
-                        <li key={resource.href}>
-                          <a
-                            className="text-cw-accent-light hover:text-cw-accent"
-                            href={resource.href}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {resource.label}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
+                  {content.resources.length > 0 && (
+                    <footer className="border-t border-cw-border-light pt-4">
+                      <h3 className="text-sm font-semibold text-cw-accent-light">Resources</h3>
+                      <ul className="mt-2 space-y-1 text-sm text-cw-text-muted">
+                        {content.resources.map((resource) => (
+                          <li key={resource.href}>
+                            <a
+                              className="text-cw-accent-light hover:text-cw-accent"
+                              href={resource.href}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {resource.label}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </footer>
+                  )}
+                </article>
               )}
 
               {activeTab === "video" && (
@@ -461,42 +522,43 @@ const LessonPage = () => {
               )}
             </div>
 
-            <div className="space-y-3 border-t border-cw-border bg-cw-panel-alt/70 px-4 py-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-gray-300">Test panel</h2>
-                <span className="text-xs text-cw-text-muted">Read only</span>
-              </div>
-              <ul className="space-y-2 text-sm text-cw-text-muted">
-                {content.exercise.tests.map((test, index) => {
-                  const status = testStatuses[index] ?? "idle";
-                  const { icon: StatusIcon, className, label } = testStatusStyles[status];
-                  return (
-                    <li key={test.id} className="flex items-start gap-2 rounded-xl border border-cw-border bg-cw-surface/90 p-3 shadow-inner shadow-black/40">
-                      <StatusIcon className={clsx("mt-0.5 h-4 w-4", className)} />
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-white">{test.name}</p>
-                        <p className="text-xs text-cw-text-muted">{test.description}</p>
-                        <div className="flex flex-wrap gap-3 text-[10px] uppercase tracking-[0.25em] text-cw-text-muted">
-                          <span>Status · {label}</span>
-                          {test.inputExample && <span>Input · {test.inputExample}</span>}
-                          {test.expectedOutput && <span>Output · {test.expectedOutput}</span>}
+            {activeTab === "exercise" && (
+              <div className="space-y-3 border-t border-cw-border bg-cw-panel-alt/70 px-4 py-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-gray-300">Test panel</h2>
+                </div>
+                <ul className="space-y-2 text-sm text-cw-text-muted">
+                  {content.exercise.tests.map((test, index) => {
+                    const status = testStatuses[index] ?? "idle";
+                    const { icon: StatusIcon, className, label } = testStatusStyles[status];
+                    return (
+                      <li key={test.id} className="flex items-start gap-2 rounded-xl border border-cw-border bg-cw-surface/90 p-3 shadow-inner shadow-black/40">
+                        <StatusIcon className={clsx("mt-0.5 h-4 w-4", className)} />
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold text-white">{test.name}</p>
+                          <p className="text-xs text-cw-text-muted">{test.description}</p>
+                          <div className="flex flex-wrap gap-3 text-[10px] uppercase tracking-[0.25em] text-cw-text-muted">
+                            <span>Status · {label}</span>
+                            {test.inputExample && <span>Input · {test.inputExample}</span>}
+                            {test.expectedOutput && <span>Output · {test.expectedOutput}</span>}
+                          </div>
                         </div>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-              {nextLesson && (
-                <button
-                  type="button"
-                  onClick={() => navigate(`/lesson/${nextLesson.id}`)}
-                  className="inline-flex items-center gap-2 rounded-full border border-cw-border-light px-3 py-1 text-xs font-semibold text-cw-accent-light transition hover:border-cw-accent hover:text-cw-accent"
-                >
-                  Next lesson
-                  <ArrowRightIcon className="h-3 w-3" />
-                </button>
-              )}
-            </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {nextLesson && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/lesson/${nextLesson.id}`)}
+                    className="inline-flex items-center gap-2 rounded-full border border-cw-border-light px-3 py-1 text-xs font-semibold text-cw-accent-light transition hover:border-cw-accent hover:text-cw-accent"
+                  >
+                    Next lesson
+                    <ArrowRightIcon className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </section>
 
@@ -544,10 +606,10 @@ const LessonPage = () => {
 
           {/* Code Editor */}
           <div className="flex flex-1 min-h-0 flex-col">
-            <div className="border-b border-cw-border p-2 bg-cw-panel/80">
+            <div className="border-b border-cw-border bg-cw-panel/80 p-2">
               <h3 className="text-sm font-semibold text-white">Your Solution</h3>
             </div>
-            <div className="flex-1 min-h-[320px] overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-hidden">
               <Editor
                 height="100%"
                 language={monacoLanguage}
@@ -569,19 +631,40 @@ const LessonPage = () => {
                 }}
               />
             </div>
-          </div>
-
-          {/* Console Output */}
-          <div className="border-t border-cw-border bg-cw-panel">
-            <div className="border-b border-cw-border p-2">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold text-white">Output Console</h4>
-                <span className="text-xs text-cw-text-muted">Execution Results</span>
-              </div>
+            <div
+              role="separator"
+              aria-orientation="horizontal"
+              className={clsx(
+                "h-2 flex-none cursor-row-resize select-none bg-cw-border/70 transition-colors",
+                isConsoleResizing ? "bg-cw-accent" : "hover:bg-cw-accent/60",
+              )}
+              onMouseDown={handleConsoleResizeStart}
+              onDoubleClick={handleConsoleResizeReset}
+              title="Drag to resize the console. Double-click to reset."
+            />
+            <div
+              className={clsx(
+                "flex flex-none flex-col border-t border-cw-border bg-cw-panel",
+                isConsoleCollapsed && "border-t-transparent",
+              )}
+              style={{
+                height: `${consoleHeight}px`,
+                flexBasis: `${consoleHeight}px`,
+                minHeight: `${MIN_CONSOLE_HEIGHT}px`,
+                maxHeight: `${MAX_CONSOLE_HEIGHT}px`,
+              }}
+            >
+              {!isConsoleCollapsed && (
+                <>
+                  <div className="flex items-center justify-between border-b border-cw-border-light px-3 py-2">
+                    <h4 className="text-sm font-semibold text-white">Output Console</h4>
+                  </div>
+                  <pre className="flex-1 overflow-y-auto bg-cw-surface p-3 font-mono text-xs text-gray-300 whitespace-pre-wrap">
+                    {consoleOutput}
+                  </pre>
+                </>
+              )}
             </div>
-            <pre className="max-h-32 overflow-y-auto bg-cw-surface p-2 font-mono text-xs text-gray-300 whitespace-pre-wrap">
-              {consoleOutput}
-            </pre>
           </div>
 
           {/* Action Buttons */}

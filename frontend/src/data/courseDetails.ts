@@ -280,12 +280,6 @@ const lessonContentCatalog: Record<string, LessonContent> = {
         description:
           "Contrast `for`, `while`, and `do-while` loops with real-world exercises. You will benchmark each version in the playground.",
       },
-      {
-        title: "Debugging with lldb",
-        description:
-          "Capture watchpoints and breakpoints to inspect variable changes as control flow branches.",
-        codeSample: `for (int i = 0; i < count; ++i) {\n    if (should_log(i)) {\n        printf("step %d\\n", i);\n    }\n}`,
-      },
     ],
     videoUrl: "https://www.youtube.com/embed/SV-VNTnCI6M",
     exercise: {
@@ -326,10 +320,7 @@ const lessonContentCatalog: Record<string, LessonContent> = {
         },
       ],
     },
-    resources: [
-      { label: "Loop constructs in C", href: "https://en.cppreference.com/w/c/language/for" },
-      { label: "Control flow cheat sheet", href: "https://www.cs.cmu.edu/~15131/f17/topics/control-flow/" },
-    ],
+    resources: [],
   },
 };
 
